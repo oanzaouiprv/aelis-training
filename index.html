@@ -16,7 +16,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Instrument+Sans:wght@400..700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Instrument+Sans:wght@400..700&family=Instrument+Serif:ital@0;1&display=swap">
 <style>
 /* Layout: guida del prototipo a sinistra (solo desktop), app mobile-first in colonna da 480px, barra di navigazione in basso, festa di fine allenamento a schermo intero */
 :root{
@@ -365,6 +365,53 @@ textarea.in{min-height:90px;resize:vertical}
 .teambar{height:14px;border-radius:14px;background:var(--line);overflow:hidden}
 .teambar i{display:block;height:100%;border-radius:14px;background:var(--ink)}
 .avs{display:flex}.avs .av{width:30px;height:30px;font-size:11px!important;border:2px solid var(--bg);margin-left:-8px}.avs .av:first-child{margin-left:0}
+
+/* trasformazione */
+.trs{margin:-20px calc(-1 * max(16px,env(safe-area-inset-left,0px))) -32px;padding:16px 16px 40px;background:radial-gradient(90% 40% at 100% 0%,rgb(41 41 253 / .28),transparent 70%),radial-gradient(70% 30% at 0% 60%,rgb(41 41 253 / .12),transparent 70%),#000E29;color:#FFFFFF;display:flex;flex-direction:column;gap:18px;min-height:calc(100vh - 110px)}
+@media (min-width:980px){.trs{margin-left:-20px;margin-right:-20px}}
+.trs .backb{background:rgb(255 255 255 / .06);border-color:rgb(255 255 255 / .12);color:#fff}
+.trs-t{font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-size:46px;line-height:1;margin:0;letter-spacing:-.01em}
+.trs-t em{font-style:italic;background:linear-gradient(100deg,#BCD7F7,#7C7CFF 60%,#BCD7F7);-webkit-background-clip:text;background-clip:text;color:transparent;padding-right:4px}
+.trs-s{color:#9DB0CF;font-size:17px;margin-top:-8px}
+.trs-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;position:relative}
+.trs-steps::before{content:"";position:absolute;left:12%;right:12%;top:38px;height:1px;background:rgb(188 215 247 / .25)}
+.trs-step{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;position:relative}
+.trs-step .ico{width:100%;aspect-ratio:1;max-width:78px;border-radius:16px;display:grid;place-items:center;background:#03173F;border:1px solid rgb(188 215 247 / .16);color:#BCD7F7;margin-bottom:6px}
+.trs-step.cur .ico{border-color:rgb(188 215 247 / .55);box-shadow:0 0 0 1px rgb(41 41 253 / .5),0 0 24px rgb(41 41 253 / .45)}
+.trs-step.cur .ico .sti,.trs-r.cur .ico .sti{filter:drop-shadow(0 0 6px rgb(124 124 255 / .9))}
+.trs-step .num{font-size:12px;color:#7C7CFF;font-weight:650}
+.trs-step .nm{font-size:9px;letter-spacing:.05em;text-transform:uppercase;font-weight:700}
+.trs-step.cur .nm{color:#BCD7F7}
+.trs-step .ds{font-size:11px;color:#9DB0CF;line-height:1.3}
+.trs-step.lock .ico{opacity:.55}
+.trs-card{border:1px solid rgb(188 215 247 / .16);background:rgb(255 255 255 / .03);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.trs-k{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#BCD7F7;font-weight:600}
+.trs-h{font-family:'Instrument Serif',Georgia,serif;font-weight:400;font-size:38px;line-height:1;margin:6px 0 4px}
+.trs-acc{color:#7C9BFF;font-size:16px}
+.trs-pill{flex:none;background:#BCD7F7;color:#000E29;font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:7px 12px;border-radius:999px}
+.trs-bar{flex:1;height:10px;border-radius:10px;background:rgb(255 255 255 / .1);overflow:hidden}
+.trs-bar i{display:block;height:100%;border-radius:10px;background:linear-gradient(90deg,#2929FD,#7C9BFF,#BCD7F7)}
+.trs-pc{color:#BCD7F7;font-size:17px}
+.trs-nums{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid rgb(188 215 247 / .12);padding-top:12px}
+.trs-nums>div+div{border-left:1px solid rgb(188 215 247 / .12);padding-left:14px}
+.trs-nums b{font-family:var(--display);font-size:34px;font-weight:700;line-height:1}
+.trs-nums span{color:#9DB0CF;font-size:14px}
+.trs-l{color:#9DB0CF;font-size:13px}
+.trs-rw{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (min-width:430px){.trs-rw{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.trs-r{border:1px solid rgb(188 215 247 / .14);border-radius:14px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;color:#BCD7F7;background:rgb(255 255 255 / .02)}
+.trs-r.cur{border-color:rgb(188 215 247 / .5);background:rgb(41 41 253 / .08)}
+.trs-r .nm{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:#fff}
+.trs-r .nm span{color:#7C7CFF}
+.trs-r .ds{font-size:12px;color:#C8D6EA;line-height:1.3;flex:1}
+.trs-r .st{width:24px;height:24px;border-radius:50%;display:grid;place-items:center}
+.trs-r.ok .st{background:#BCD7F7;color:#000E29}
+.trs-r.lock{opacity:.6}.trs-r.lock .st{color:#9DB0CF}
+.trs-next{flex-direction:row;align-items:center;gap:14px;flex-wrap:wrap}
+.trs-next .grow{flex:1 1 180px}
+.trs-tg{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:rgb(41 41 253 / .18);color:#BCD7F7;box-shadow:inset 0 0 0 1px rgb(188 215 247 / .3);flex:none}
+.trs-nn{font-size:18px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;margin:2px 0}
+.trs-btn{border:0;border-radius:999px;background:#BCD7F7;color:#000E29;font-weight:700;padding:13px 18px;display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:1 1 100%}
 /* trofei */
 .badges{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 10px}
 .badge{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:4px}
@@ -729,17 +776,19 @@ function parseSpoken(t){t=(t||'').toLowerCase().replace(/[“”"]/g,' ');t=t.re
 
 /* ---------- metamorfosi ---------- */
 const STAGE=[
- {k:'battito',n:'Battito',min:0,t:'Il primo gesto',d:'Un piccolo gesto: il primo allenamento. Da qui parte tutto.',gift:'Benvenuto nel club AELIS'},
- {k:'ritmo',n:'Ritmo',min:8,t:'Diventa abitudine',d:'I piccoli gesti si ripetono e diventano abitudine.',gift:'Card speciale per le storie'},
- {k:'slancio',n:'Slancio',min:20,t:'I risultati si sommano',d:'Ogni settimana si somma alla precedente: forza, energia, postura.',gift:'Servizio foto dei progressi con Aelis'},
- {k:'farfalla',n:'Effetto farfalla',min:40,t:'Diventa ciò che sei',d:'Piccoli cambiamenti, risultati enormi. E da qui si continua.',gift:'La maglia AELIS Training'}];
+ {k:'origine',n:'Origine',min:0,t:'Il primo passo.',d:'Il primo allenamento: da qui parte tutto.',gift:'Badge di benvenuto'},
+ {k:'ritmo',n:'Ritmo',min:8,t:'La costanza prende forma.',d:'I piccoli gesti si ripetono e diventano abitudine.',gift:'Card digitale personalizzata'},
+ {k:'potenziale',n:'Potenziale',min:25,t:'Scopri ciò di cui sei capace.',d:'I risultati si sommano: forza, energia, postura.',gift:'Check speciale con confronto progressi'},
+ {k:'trasformazione',n:'Trasformazione',min:50,t:'Una nuova versione di te.',d:'Piccoli cambiamenti, risultati enormi. E si continua.',gift:'Maglia esclusiva AELIS Training'}];
 function stageOf(cid){const hs=histOf(cid);const n=hs.length;let i=0;STAGE.forEach((s,j)=>{if(n>=s.min)i=j;});const nx=STAGE[i+1];
  const at=STAGE.map(s=>s.min===0?(hs[0]?hs[0].date:null):(hs[s.min-1]?hs[s.min-1].date:null));
  return{i:i,s:STAGE[i],n:n,next:nx,left:nx?nx.min-n:0,p:nx?(n-STAGE[i].min)/(nx.min-STAGE[i].min):1,at:at};}
 function stageIcon(i,sz,foil){sz=sz||30;
- if(i===0)return '<svg width="'+sz+'" height="'+sz+'" viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="7" fill="currentColor"/><circle cx="30" cy="30" r="14" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".45"/></svg>';
- const id=i===1?'st1':i===2?'st2':'bfMb';
- return '<svg width="'+sz+'" height="'+sz+'" viewBox="-720 -720 1440 1400" aria-hidden="true"><use href="#'+id+'" fill="currentColor"></use></svg>';}
+ const sv=(vb,inner)=>'<svg width="'+sz+'" height="'+sz+'" viewBox="'+vb+'" aria-hidden="true" class="sti">'+inner+'</svg>';
+ if(i===0)return sv('0 0 60 60','<circle cx="30" cy="30" r="17" fill="none" stroke="currentColor" stroke-width="1" opacity=".35"/><circle cx="30" cy="30" r="6.5" fill="currentColor"/>');
+ if(i===1)return sv('0 0 60 60','<path d="M6 40 C14 40 16 14 26 14 C36 14 36 44 46 44 C52 44 54 36 56 30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8 42 C16 42 18 18 27 18 C37 18 36 46 47 46" fill="none" stroke="currentColor" stroke-width=".8" opacity=".4"/><circle cx="19" cy="22" r="3.2" fill="currentColor"/><circle cx="44" cy="43.5" r="3.2" fill="currentColor"/>');
+ if(i===2)return sv('0 0 60 60','<path d="M30 30 C24 22 16 18 10 22 C4 26 4 34 10 38 C16 42 24 38 30 30 C36 22 44 18 50 22 C56 26 56 34 50 38 C44 42 36 38 30 30 Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M30 30 C25 24 18 21 13 24 C9 27 9 33 13 36 C18 39 25 36 30 30 C35 24 42 21 47 24 C51 27 51 33 47 36 C42 39 35 36 30 30" fill="none" stroke="currentColor" stroke-width=".8" opacity=".45"/><circle cx="30" cy="30" r="3.4" fill="currentColor"/>');
+ return '<svg width="'+sz+'" height="'+sz+'" viewBox="-720 -720 1440 1400" aria-hidden="true" class="sti"><use href="#'+(foil?'bfDb':'bfMb')+'" fill="currentColor"></use></svg>';}
 function metaTrack(cid){const sg=stageOf(cid);const prog=Math.min(1,(sg.i+sg.p)/3);
  return '<div class="mtrack"><span class="fill" style="width:calc(75% * '+prog.toFixed(3)+')"></span>'+STAGE.map((s,j)=>'<div class="mnode '+(j<sg.i?'done':j===sg.i?'cur':'lock')+'"><span class="ico">'+stageIcon(j,j>=1?40:30,j===sg.i)+'</span>'+s.n+'</div>').join('')+'</div>';}
 
@@ -769,7 +818,7 @@ function wrapHTML(){
  if(i===2){const t=m.vol/1000;const eq=volEq(m.vol);b='<p class="eb">Peso sollevato</p><p class="huge">'+(t>=10?Math.round(t):kgf(Math.round(t*10)/10))+'<span style="font-size:.4em">t</span></p><h2>'+nf(m.vol)+' kg spostati in '+Math.round(m.min/60)+' ore di lavoro.</h2>'+(eq?'<p class="l">Come sollevare '+eq[1]+'. Più volte.</p>':'');}
  if(i===3){b='<p class="eb">Record personali</p><p class="huge">'+m.prs+'</p><h2>volte hai alzato<br>l\'asticella.</h2>'+(m.top?'<p class="l">Il salto più grande: <b>'+esc(m.top.name)+'</b>, da '+kgf(m.top.from)+' a '+kgf(m.top.kg)+' kg (+'+Math.round((m.top.kg-m.top.from)/m.top.from*100)+'%).</p>':'');}
  if(i===4){b='<p class="eb">I muscoli del mese</p><h2>'+m.mus.slice(0,2).map(x=>MUSCLES[x]).join(' e ')+'<br>hanno lavorato più di tutti.</h2><div style="max-width:300px;align-self:center;width:100%">'+bodyMap(m.mus.slice(0,3),m.mus.slice(3,6),'Muscoli più allenati del mese',true,true)+'</div>';}
- if(i===5){b='<p class="eb">Il tuo effetto farfalla</p><div style="color:#BCD7F7;align-self:flex-start">'+stageIcon(sg.i,sg.i>=2?150:110,true)+'</div><h2>Sei in fase<br>'+sg.s.n+'.</h2><p class="l">'+esc(sg.s.d)+(sg.next?' Ancora '+sg.left+' allenament'+(sg.left===1?'o':'i')+' per la fase '+sg.next.n+'.':'')+'</p>';}
+ if(i===5){b='<p class="eb">La tua trasformazione</p><div style="color:#BCD7F7;align-self:flex-start">'+stageIcon(sg.i,sg.i>=2?150:110,true)+'</div><h2>Sei in fase<br>'+sg.s.n+'.</h2><p class="l">'+esc(sg.s.d)+(sg.next?' Ancora '+sg.left+' allenament'+(sg.left===1?'o':'i')+' per la fase '+sg.next.n+'.':'')+'</p>';}
  if(i===6){b='<div class="story" style="max-width:260px;aspect-ratio:auto;align-self:center;gap:14px"><svg class="sbf" viewBox="-720 -720 1440 1400" aria-hidden="true"><use href="#bfD"></use></svg><div><svg width="90" height="20" viewBox="-20 -80 420 90" aria-label="AELIS"><use href="#wmT" fill="url(#foilT)"></use><use href="#wmS" fill="#BCD7F7"></use></svg><p class="bigs" style="margin-top:12px">Il mio<br>'+m.label+'</p></div><div class="mini" style="border-top-color:rgb(255 255 255 / .15)"><div><b>'+m.n+'</b><span>allenamenti</span></div><div><b>'+(m.vol>=10000?Math.round(m.vol/1000):kgf(Math.round(m.vol/100)/10))+' t</b><span>sollevate</span></div><div><b>'+m.prs+'</b><span>record</span></div></div><p style="font-size:12px;opacity:.7">Fase '+sg.s.n+' · @aelistraining</p></div><p class="l" style="text-align:center;font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.06em;color:#BCD7F7">Diventa ciò che sei.</p>';}
  const last=i===WRAPN-1;
  return '<div class="wrp" role="dialog" aria-modal="true" aria-label="Il tuo '+m.label+'"><div class="st"><div class="bg" style="background:'+BG[i]+'"></div><div class="bars" aria-hidden="true">'+Array.from({length:WRAPN},(_,k)=>'<i class="'+(k<i?'done':k===i&&!last?'on':k===i?'done':'')+'"><b></b></i>').join('')+'</div>'+
@@ -1260,7 +1309,7 @@ function vBooking(){
  return h+'</div>';
 }
 function vInfo(){
- return head('Info app','AELIS Training · versione 0.5')+'<div class="card stack"><p>'+((window.AELIS_CONFIG&&window.AELIS_CONFIG.supabaseUrl)?'Versione collegata al database.':'<b>Modalità demo</b>: dati di esempio inventati, salvati solo in questo browser. Puoi provare tutto liberamente.')+'</p><p><b>P0</b> prima versione · <b>P1</b> versione estesa · <b>P2</b> seconda fase. Dove non c\'è etichetta, è P0.</p><p>Simulati: inviti ed email, notifiche, risposte dell\'AI, video e foto.</p></div><button class="btn danger block" data-act="reset">Ripristina i dati di esempio</button>';
+ return head('Info prototipo','AELIS Training · versione 3')+'<div class="card stack"><p>'+((window.AELIS_CONFIG&&window.AELIS_CONFIG.supabaseUrl)?'Versione collegata al database.':'<b>Modalità demo</b>: dati di esempio inventati, salvati solo in questo browser. Puoi provare tutto liberamente.')+'</p><p><b>P0</b> prima versione · <b>P1</b> versione estesa · <b>P2</b> seconda fase. Dove non c\'è etichetta, è P0.</p><p>Simulati: inviti ed email, notifiche, risposte dell\'AI, video e foto.</p></div><button class="btn danger block" data-act="reset">Ripristina i dati di esempio</button>';
 }
 
 /* ================= CLIENTE ================= */
@@ -1404,7 +1453,7 @@ function cPercorso(){
  return h+'</section>';
 }
 function cAltro(){
- const items=[['check','heart','Check della settimana','5 domande per Aelis',ph('P1')],['ai','spark','Chiedi ad Aelis AI','Spiegazioni sugli esercizi della tua scheda',ph('P2')],['sfide','trophy','Sfide di gruppo','Classifiche e sfide di squadra',ph('P2')],['metamorfosi','leaf','Il tuo effetto farfalla','Le 4 fasi del tuo percorso',''],['community','users','Community','Condividi solo quello che scegli',ph('P2')],['privacy','lock','Privacy e dati','Cosa vedi, cosa condividi, i tuoi diritti','']];
+ const items=[['check','heart','Check della settimana','5 domande per Aelis',ph('P1')],['ai','spark','Chiedi ad Aelis AI','Spiegazioni sugli esercizi della tua scheda',ph('P2')],['sfide','trophy','Sfide di gruppo','Classifiche e sfide di squadra',ph('P2')],['metamorfosi','leaf','La tua trasformazione','Le 4 fasi del tuo percorso',''],['community','users','Community','Condividi solo quello che scegli',ph('P2')],['privacy','lock','Privacy e dati','Cosa vedi, cosa condividi, i tuoi diritti','']];
  return '<h1 class="h2">Altro</h1><div class="list">'+items.map(x=>'<button class="li" data-act="open" data-v="'+x[0]+'"><span class="av">'+ic(x[1],18)+'</span><span class="grow"><span class="t">'+x[2]+'</span><br><span class="s">'+x[3]+'</span></span>'+x[4]+chev()+'</button>').join('')+'</div>'+
   '<div class="card"><div class="row"><span class="av">'+ic('msg',18)+'</span><div class="grow"><p style="font-weight:650">Scrivi ad Aelis</p><p class="small muted">Per ora su WhatsApp. La chat nell\'app arriva con la '+ph('P1')+'</p></div></div><button class="btn block" data-act="toast" data-v="Nell\'app vera questo pulsante apre WhatsApp con la coach.">Apri WhatsApp</button></div>';
 }
@@ -1440,13 +1489,16 @@ function cCommunity(){
 }
 
 function cMeta(){
- const c=me();const sg=stageOf(c.id);
- let h=head('Il tuo effetto farfalla','Piccoli cambiamenti, risultati enormi');
- h+='<section class="hero night"><div class="row" style="gap:16px;align-items:center"><span style="color:#BCD7F7;flex:none">'+stageIcon(sg.i,sg.i>=2?110:80,true)+'</span><div class="stack" style="gap:6px"><div class="k">Fase attuale</div><h3>'+sg.s.n+'</h3><p class="small muted">'+esc(sg.s.t)+' · '+sg.n+' allenamenti</p></div></div>'+(sg.next?'<div class="stack" style="gap:6px"><div class="bar" style="background:rgb(255 255 255 / .12)"><i style="width:'+Math.round(sg.p*100)+'%;background:var(--foil)"></i></div><p class="small muted">Ancora '+sg.left+' allenament'+(sg.left===1?'o':'i')+' per la fase '+sg.next.n+'.</p></div>':'')+'</section>';
- h+='<div class="stack" style="gap:12px">'+STAGE.map((st,j)=>{const cl=j<sg.i?'done':j===sg.i?'cur':'lock';const lab=j<sg.i?'<span class="chip good">'+ic('check',12)+' Raggiunta'+(sg.at[j]?' il '+fd(sg.at[j]):'')+'</span>':j===sg.i?'<span class="chip pink">Sei qui</span>':'<span class="chip">Da '+st.min+' allenamenti</span>';
-  return '<div class="card stage '+cl+'"><span class="ico">'+stageIcon(j,j>=2?52:36,j===sg.i)+'</span><div class="stack" style="gap:6px"><div class="row between" style="align-items:flex-start;gap:8px"><div><p style="font-family:var(--display);font-size:20px;font-weight:800;line-height:1">'+st.n+'</p><p class="xs muted">'+esc(st.t)+'</p></div>'+lab+'</div><p class="small">'+esc(st.d)+'</p><p class="gift">'+ic('gift',16)+' '+esc(st.gift)+'</p></div></div>';}).join('')+'</div>';
- h+=empty('Le fasi si basano sugli allenamenti registrati, con la coach o in autonomia. I premi li decide Aelis.');
- return h;
+ const c=me();const sg=stageOf(c.id);const nx=sg.next;const goal=nx?nx.min:sg.n;const p=nx?Math.min(1,sg.n/goal):1;
+ let h='<div class="trs"><div class="pagehead"><button class="backb" data-act="back" aria-label="Indietro">'+ic('back')+'</button></div>';
+ h+='<h1 class="trs-t">La tua <em>trasformazione</em></h1><p class="trs-s">Ogni allenamento conta.</p>';
+ h+='<div class="trs-steps">'+STAGE.map((st,j)=>'<div class="trs-step '+(j<sg.i?'done':j===sg.i?'cur':'lock')+'"><span class="ico">'+stageIcon(j,j===3?64:48)+'</span><span class="num">0'+(j+1)+'</span><span class="nm">'+st.n+'</span><span class="ds">'+esc(st.t)+'</span></div>').join('')+'</div>';
+ h+='<section class="trs-card"><div class="row between" style="align-items:flex-start"><div><p class="trs-k">'+ic('chart',16)+' Il tuo percorso</p><h2 class="trs-h">'+sg.s.n+'</h2><p class="trs-acc">'+esc(sg.s.t)+'</p></div><span class="trs-pill">Fase '+(sg.i+1)+' / 4</span></div>'+
+  '<div class="row" style="gap:12px;align-items:center"><div class="trs-bar"><i style="width:'+Math.round(p*100)+'%"></i></div><b class="trs-pc">'+Math.round(p*100)+'%</b></div>'+
+  '<div class="trs-nums"><div><p><b>'+sg.n+'</b> <span>/ '+goal+'</span></p><p class="trs-l">Allenamenti completati</p></div>'+(nx?'<div><p><b>'+sg.left+'</b> <span>al prossimo traguardo</span></p><p class="trs-l">'+nx.n+'</p></div>':'<div><p class="trs-l">Hai completato tutte le fasi</p></div>')+'</div></section>';
+ h+='<section class="trs-card"><p class="trs-k">'+ic('gift',16)+' Le ricompense</p><div class="trs-rw">'+STAGE.map((st,j)=>'<div class="trs-r '+(j<=sg.i?'ok':'lock')+(j===sg.i?' cur':'')+'"><span class="ico">'+stageIcon(j,j===3?52:40)+'</span><p class="nm"><span>0'+(j+1)+'</span> '+st.n+'</p><p class="ds">'+esc(st.gift)+'</p><span class="st">'+(j<=sg.i?ic('check',14):ic('lock',14))+'</span></div>').join('')+'</div></section>';
+ if(nx)h+='<section class="trs-card trs-next"><span class="trs-tg">'+ic('target',22)+'</span><div class="grow"><p class="trs-k" style="margin:0">Prossimo traguardo</p><p class="trs-nn">'+nx.n+'</p><p class="trs-l">Hai completato '+sg.n+' allenamenti. Te ne mancano '+sg.left+' per sbloccare il prossimo traguardo.</p></div><button class="trs-btn" data-act="ctabMain" data-v="allena">Vai agli allenamenti '+ic('chev',16)+'</button></section>';
+ return h+'</div>';
 }
 function cSfide(){
  const c=me();let h=head('Sfide di gruppo','Con gli altri clienti di Aelis '+ph('P2'));

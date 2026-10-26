@@ -16,7 +16,7 @@ Una web app con due aree:
 |---|---|
 | Agenda del giorno e registro ore | Allenamento di oggi con serie, carichi e recuperi |
 | **Le priorità di oggi**: clienti a rischio abbandono, record, feedback, rate | Dettatura vocale delle serie e cambio esercizio se la macchina è occupata |
-| Dossier cliente, schede, percorsi e lezioni | **Il tuo effetto farfalla**: le 4 fasi del percorso |
+| Dossier cliente, schede, percorsi e lezioni | **La tua trasformazione**: Origine, Ritmo, Potenziale, Trasformazione |
 | Contatti e provenienza dei clienti (social, sala, esterni) | Riepilogo del mese in 7 storie da condividere |
 | Automazioni e sfide di gruppo | Trofei, sfide, check settimanale |
 
