@@ -34,19 +34,23 @@ Il logo è la **farfalla di Lorenz**: in matematica un cambiamento minuscolo pu�
 
 ## Come è fatta
 - **Web app installabile (PWA)**: si apre da un link e si aggiunge alla schermata Home; funziona anche senza connessione.
-- **Nessuna compilazione**: HTML, CSS e JavaScript puri, facili da modificare.
-- **Database Supabase** (piano gratuito): accesso con link via email, dati in Europa, regole di sicurezza per riga (la coach vede tutto, ogni cliente solo i propri dati). Schema in [`supabase/schema.sql`](supabase/schema.sql), testato con Postgres 16.
+- **Nessuna compilazione**: HTML, CSS e JavaScript puri (`index.html`, `app.js`, `cloud.js`), facili da modificare.
+- **Database Supabase** (piano gratuito): dati in Europa, regole di sicurezza per riga. La coach vede i suoi clienti, ogni cliente solo i propri dati, e le note private non lasciano mai il telefono della coach. Schema in [`supabase/schema.sql`](supabase/schema.sql), testato con Postgres 16.
+- **Iscrizione solo su invito**: la coach manda un link personale (monouso, 14 giorni) e il cliente crea la sua password. Il controllo avviene nel database, quindi non si aggira dalla pagina.
+- **Funziona anche senza campo**: gli allenamenti registrati offline si salvano appena torna la rete, e due dispositivi dello stesso cliente non si sovrascrivono.
+- **Sicurezza**: Content Security Policy rigorosa, password robuste, nessun dato in cache dopo il logout, eliminazione completa del cliente (GDPR). Dettagli in [`docs/SICUREZZA.md`](docs/SICUREZZA.md).
+- **Test automatici**: attacchi al database su Postgres e più di 50 scenari dell'app in un browser vero ([`tests/`](tests/)).
 - **Hosting GitHub Pages** (gratuito).
 - **Modalità demo**: senza chiavi del database l'app parte con dati di esempio inventati, così chiunque può provarla.
 
 ## Costi
-0 € per partire: GitHub Pages, Supabase Free e un servizio email gratuito per i link di accesso. Dettagli e limiti in [`docs/GUIDA.md`](docs/GUIDA.md).
+0 € per partire: GitHub Pages, Supabase Free e Brevo Free per le email di conferma e di nuova password. Dettagli e limiti in [`docs/GUIDA.md`](docs/GUIDA.md).
 
 ## Stato del progetto
 - [x] Prototipo completo e demo pubblica
 - [x] Schema del database con regole di sicurezza
-- [ ] Accesso reale e area coach collegata al database
-- [ ] Area cliente collegata al database e inviti
+- [x] Accesso reale: coach, inviti, iscrizione clienti, password dimenticata
+- [x] Area coach e area cliente collegate al database, anche offline
 - [ ] Pilota con 3–5 clienti veri
 
 Roadmap completa in [`docs/ROADMAP.md`](docs/ROADMAP.md).

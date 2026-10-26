@@ -1,49 +1,114 @@
-# Guida: mettere online AELIS Training a costo zero
+# Guida: mettere online AELIS Training, gratis e in modo sicuro
 
-Tempo totale: circa 1 ora, una volta sola. Servono solo un computer e un'email.
+Si fa una volta sola e richiede circa un'ora e mezza. Servono un computer, l'email di Oussama e l'email di Aelis.
+Segui i passi in ordine: ognuno si chiude con un **controllo** che dice se è andato bene.
 
-## 1. GitHub: codice e sito (gratis)
-1. Crea un account su github.com.
-2. Crea un repository **pubblico** chiamato `aelis-training` (vuoto, senza README).
-   Con il piano gratuito GitHub Pages pubblica solo da repository pubblici: va bene, è anche il tuo portfolio. Nel codice non ci sono password.
-3. Collegalo a Claude: Claude carica tutti i file.
-4. Nel repository: **Settings → Pages → Branch: `main` / cartella `/ (root)` → Save**.
-5. Dopo un paio di minuti l'app è online su `https://TUONOME.github.io/aelis-training/`, in **modalità demo**.
+> Regola d'oro: le password e la chiave segreta di Supabase non si mandano a nessuno, nemmeno a Claude.
+> A Claude servono solo due cose pubbliche: l'indirizzo del progetto e la chiave *publishable*.
 
-Da qui in poi ogni modifica fatta da Claude arriva online da sola in 1-2 minuti.
+---
 
-## 2. Supabase: il database (gratis)
-1. Crea un account su supabase.com → **New project**.
-   - Nome `aelis-training`.
-   - Regione **Europe (Frankfurt)**.
-   - Una password lunga, da salvare.
-2. **SQL Editor** → incolla tutto `supabase/schema.sql` → **Run**.
-3. **Storage → New bucket** chiamato `foto`, **privato**.
-4. **Project Settings → API**: copia `Project URL` e la chiave `anon public`, e mandale a Claude. Finiscono in `config.js`. La chiave anon è pubblica per natura: la sicurezza la fanno le regole del database.
-5. **Authentication → URL Configuration**: imposta come Site URL l'indirizzo GitHub Pages.
+## Passo 0 · Prima di iniziare (5 minuti)
+1. Installa un gestore di password (Bitwarden è gratuito) e usalo per tutti gli account qui sotto.
+2. Decidi l'email della coach: è quella con cui Aelis entrerà nell'app. Solo quell'email potrà diventare coach.
 
-Limiti del piano gratuito da conoscere:
-- **Spazio:** 500 MB di database e 1 GB di file. Le foto vanno compresse: l'app lo farà da sola.
-- **Pausa per inattività:** il progetto **va in pausa dopo 7 giorni senza attività**. Con l'uso quotidiano non succede; se capita, si riattiva con un clic.
+## Passo 1 · GitHub: il sito (gratis)
+1. Crea un account su github.com e **attiva la verifica in due passaggi** (Settings → Password and authentication).
+2. Crea un repository **pubblico** chiamato `aelis-training`, vuoto.
+   Con il piano gratuito GitHub Pages pubblica solo da repository pubblici. Va bene così: è anche il tuo portfolio e nel codice non c'è niente di segreto.
+3. Carica i file: o colleghi GitHub a Claude e li carica lui, o usi **Add file → Upload files** e trascini tutto il contenuto della cartella.
+4. **Settings → Pages → Branch: `main`, cartella `/ (root)` → Save.**
 
-## 3. Email per i link di accesso (gratis)
-L'email integrata di Supabase invia solo **2 email all'ora** e solo agli indirizzi del team, quindi non basta per i clienti. Si collega un servizio SMTP gratuito, per esempio Brevo, che ha un piano gratuito giornaliero:
-1. Crea un account su brevo.com → **SMTP & API** → copia server, porta, utente e chiave SMTP.
-2. In Supabase vai su **Authentication → Emails → SMTP Settings**, incolla quei dati e imposta come mittente un'email del progetto.
+**Controllo:** dopo un paio di minuti `https://TUONOME.github.io/aelis-training/` apre l'app in modalità demo.
 
-## 4. Primo accesso della coach
-1. Apri l'app e accedi con l'email della coach.
-2. In Supabase → SQL Editor esegui una volta sola, con la sua email:
-   `update public.profiles set role = 'coach' where id = (select id from auth.users where email = 'EMAIL-DELLA-COACH');`
-3. Da quel momento la coach invita i clienti dall'app. Ognuno riceve il suo link e vede solo i propri dati.
+## Passo 2 · Supabase: database e accessi (gratis)
+1. Crea un account su supabase.com e **attiva la verifica in due passaggi** (Account → Security).
+2. **New project**:
+   - nome `aelis-training`;
+   - regione **Europe (Frankfurt)**, così i dati restano nell'Unione Europea;
+   - una password del database lunga, generata dal gestore di password.
+3. Apri il file `supabase/schema.sql`, cerca `EMAIL-DI-ALICE@esempio.it` e sostituiscilo con **l'email vera di Aelis**.
+4. In Supabase apri **SQL Editor**, incolla tutto il file e premi **Run**.
+   **Controllo:** in basso compare "Success. No rows returned".
+5. Apri **Authentication → Sign In / Providers → Email** e imposta:
+   - **Confirm email: attivo.** Così nessuno può iscriversi con l'email di un altro.
+   - **Minimum password length: 10.**
+   - **Password requirements: lettere e numeri.** Sono le stesse regole che l'app controlla già.
+   - Tutti gli altri metodi di accesso (telefono, Google, Apple…) restano **spenti**.
+   - "Allow new users to sign up" resta **acceso**: il database fa entrare solo la coach e chi ha un invito valido, tutti gli altri vengono rifiutati.
+6. Apri **Authentication → URL Configuration**:
+   - **Site URL:** `https://TUONOME.github.io/aelis-training/`;
+   - **Redirect URLs:** lo stesso indirizzo, e nient'altro.
+7. Apri **Project Settings → API Keys** e copia due cose:
+   - il **Project URL**;
+   - la chiave **publishable** (inizia con `sb_publishable_`).
+
+   Mandale a Claude, che le inserisce in `config.js`. La chiave **secret** (`sb_secret_…`, o la vecchia `service_role`) **non va mai copiata da nessuna parte**. Se finisse in `config.js` per errore, l'app si rifiuta di partire.
+
+Limiti del piano gratuito:
+- **Spazio:** 500 MB di database, che bastano per anni di allenamenti di decine di clienti.
+- **Pausa:** il progetto va in pausa dopo 7 giorni senza attività. Con l'uso quotidiano non succede; se capita, si riattiva con un clic dalla dashboard.
+- **Backup:** non ci sono backup scaricabili, quindi una volta al mese esporta le tabelle (**Table Editor → tabella → Export → CSV**).
+
+## Passo 3 · Email di conferma e nuova password (gratis)
+L'email integrata di Supabase invia pochissimi messaggi e solo agli indirizzi del team, quindi per i clienti non basta. Si usa Brevo, che nel piano gratuito invia 300 email al giorno.
+1. Crea un account su brevo.com, con la verifica in due passaggi.
+2. In **Senders, domains & dedicated IPs** aggiungi e verifica l'email mittente, per esempio l'email di lavoro di Aelis.
+3. In **SMTP & API → SMTP** genera una chiave SMTP.
+4. In Supabase vai su **Authentication → Emails → SMTP Settings**, attiva *Custom SMTP* e compila:
+   - Host `smtp-relay.brevo.com`, porta `587`;
+   - Username: il login SMTP che mostra Brevo;
+   - Password: la chiave SMTP;
+   - Sender name `AELIS Training`, sender email: quella verificata al punto 2.
+5. In **Authentication → Emails → Templates** traduci le due email che servono.
+   - **Confirm signup**
+     - oggetto: `Conferma il tuo account AELIS Training`
+     - testo: `Ciao! Per attivare il tuo account AELIS Training apri questo link: {{ .ConfirmationURL }} — Se non sei stato/a tu, ignora questa email.`
+   - **Reset password**
+     - oggetto: `Scegli una nuova password`
+     - testo: `Hai chiesto una nuova password per AELIS Training. Apri questo link per sceglierla: {{ .ConfirmationURL }} — Se non l'hai chiesta tu, ignora questa email: la password attuale resta valida.`
+
+**Controllo:** dall'app, "Password dimenticata?" con la tua email fa arrivare l'email entro un minuto. Controlla anche lo spam.
+
+## Passo 4 · Primo accesso di Aelis
+1. Aelis apre il sito e sceglie **Primo accesso della coach**.
+2. Inserisce la sua email (quella scritta nello schema) e una password di almeno 10 caratteri con lettere e numeri.
+3. Apre il link di conferma nell'email ed entra.
+4. Sul telefono installa l'app:
+   - iPhone: Safari → Condividi → *Aggiungi alla schermata Home*;
+   - Android: Chrome → menu → *Installa app*.
+
+Questo passaggio funziona **una volta sola**: dopo, nessun altro può diventare coach, nemmeno con la stessa email.
+
+## Passo 5 · Prova generale con un cliente finto
+1. Aelis: **Clienti → Invita**, con il nome e l'email di Oussama.
+2. Si apre "Invito pronto": copia il link o mandalo su WhatsApp. Vale 14 giorni e si usa una volta sola.
+3. Oussama apre il link, crea la password, dà il consenso privacy, conferma l'email ed entra.
+4. Aelis crea la scheda; Oussama fa un allenamento, un check e una richiesta di lezione; Aelis approva e manda un applauso.
+5. Alla fine Aelis elimina il cliente di prova: **dossier → Elimina cliente e dati**.
+
+**Controllo:** ogni passo compare dall'altra parte dopo aver riaperto l'app.
+
+## Passo 6 · Privacy, prima dei clienti veri
+1. Completa `privacy.html` (nome, contatti, date) e falla controllare da un consulente: l'app tratta dati sulla salute (sonno, stress, misure, limitazioni), che per legge richiedono il consenso esplicito. L'app lo chiede già all'iscrizione.
+2. Inserisci il numero WhatsApp di Aelis in `config.js` (`coachWhatsapp`), così il pulsante "Scrivi ad Aelis" apre la chat.
 
 ## Cosa costa davvero
 | Voce | Costo |
 |---|---|
 | GitHub Pages | 0 € |
 | Supabase Free | 0 € |
-| Email (Brevo Free) | 0 € |
-| Dominio tipo aelistraining.it | facoltativo, circa 10–15 €/anno |
+| Email (Brevo Free, 300 al giorno) | 0 € |
+| Dominio tipo aelistraining.it | facoltativo, circa 10–15 € l'anno |
 | App negli store (Apple/Google) | non serve: l'app si installa dal browser |
 
-Le funzioni "AI" del prototipo (priorità di oggi, rischio abbandono, messaggi pronti) sono calcolate da regole sui dati: **non usano servizi a pagamento**. Un vero modello AI si può aggiungere più avanti, solo se serve.
+Le funzioni "intelligenti" (priorità di oggi, rischio abbandono, messaggi pronti) sono regole calcolate sui dati: **non usano servizi a pagamento** e non mandano dati a nessuno.
+
+## Se qualcosa non va
+| Sintomo | Causa probabile |
+|---|---|
+| "Non riesco a caricare l'accesso" | Manca la connessione, oppure la libreria di accesso non si carica: scrivi a Claude. |
+| "Configurazione non sicura" | In `config.js` c'è la chiave segreta: sostituiscila con la publishable e rigenera la secret in Supabase. |
+| "Questo invito non è valido" | Il link è già stato usato o è scaduto: dal dossier del cliente → **Nuovo link**. |
+| Le email non arrivano | Controlla lo spam e il mittente verificato su Brevo (Passo 3). |
+| L'app è ferma su "Carico i tuoi dati…" | Il progetto Supabase è in pausa: riattivalo dalla dashboard. |

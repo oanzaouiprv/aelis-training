@@ -2,22 +2,19 @@
 
 Regola: una fase alla volta, e ogni fase si prova con Aelis prima di passare alla successiva.
 
-## Fase 0 · Fatto
+## Fatto
 - Prototipo completo in modalità demo (coach e cliente).
-- Identità: logo "effetto farfalla", bianco e nero, animazione di apertura.
+- Identità: logo "effetto farfalla", palette blu, animazione di apertura, barra in stile Instagram.
 - App installabile (PWA), funziona offline.
-- Schema del database con regole di sicurezza, testato in locale.
+- Database v1 con regole di sicurezza e iscrizione solo su invito, testato su Postgres.
+- Accesso con email e password, primo accesso della coach, inviti via link (WhatsApp o email), password dimenticata, logout.
+- Tutta l'app collegata al database: dossier, schede, agenda, percorsi, allenamenti, check, richieste, applausi, sfide, community.
+- Salvataggio offline e unione automatica tra più dispositivi.
+- Eliminazione completa del cliente, informativa privacy da completare.
 
-## Fase 1 · Coach reale (1–2 settimane)
-- Accesso con link via email (Supabase Auth).
-- Clienti, dossier e note private salvati nel database.
-- Agenda, registro ore, percorsi, rate e lezioni.
-- Invito dei clienti.
-
-## Fase 2 · Cliente reale (1–2 settimane)
-- Scheda assegnata e allenamento dal vivo salvato nel database, anche senza campo: si sincronizza dopo.
-- Storico, progressi, trofei ed effetto farfalla calcolati dai dati veri.
-- Check settimanale e richiesta lezioni.
+## Adesso · Messa online (1 ora e mezza, vedi GUIDA.md)
+- Account GitHub, Supabase, Brevo; schema con l'email di Aelis; chiavi in `config.js`.
+- Prova generale con un cliente finto.
 
 ## Fase 3 · Pilota (2–4 settimane)
 - Aelis lo usa con 3–5 clienti veri.
@@ -25,8 +22,9 @@ Regola: una fase alla volta, e ogni fase si prova con Aelis prima di passare all
 - Si correggono solo i problemi trovati.
 
 ## Dopo il pilota (solo se serve)
-- Priorità di oggi e rischio abbandono sui dati reali.
-- Automazioni via email o notifiche.
+- Pulsante "Scarica i miei dati" per i clienti (portabilità GDPR) e backup automatico.
+- Automazioni via email o notifiche push.
+- CAPTCHA invisibile (Cloudflare Turnstile) se arrivano tentativi automatici.
 - Sfide di gruppo e riepilogo del mese.
 - Foto di confronto compresse e private.
 - Dominio personalizzato.

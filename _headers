@@ -1,0 +1,9 @@
+# Intestazioni di sicurezza (valgono se il sito è pubblicato su Cloudflare Pages o Netlify;
+# GitHub Pages le ignora, lì resta attiva la Content-Security-Policy dentro index.html)
+/*
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), geolocation=(), payment=(), microphone=(self)
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
