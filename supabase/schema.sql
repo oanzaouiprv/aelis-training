@@ -71,13 +71,17 @@ do $$ declare t text; begin
 end $$;
 
 -- ===== funzioni di supporto (security definer: leggono senza passare dalle policy) =====
-create or replace function public.is_coach() returns boolean language sql stable security definer set search_path=public as $$
+-- stanno nello schema "private", che non è esposto alle API: le usano solo le policy
+create schema if not exists private;
+revoke all on schema private from public, anon;
+grant usage on schema private to authenticated;
+create or replace function private.is_coach() returns boolean language sql stable security definer set search_path=public as $$
   select exists(select 1 from profiles where id = auth.uid() and role = 'coach');
 $$;
-create or replace function public.my_client_id() returns text language sql stable security definer set search_path=public as $$
+create or replace function private.my_client_id() returns text language sql stable security definer set search_path=public as $$
   select id from clients_index where user_id = auth.uid() limit 1;
 $$;
-create or replace function public.my_coach_id() returns uuid language sql stable security definer set search_path=public as $$
+create or replace function private.my_coach_id() returns uuid language sql stable security definer set search_path=public as $$
   select coach_id from clients_index where user_id = auth.uid() limit 1;
 $$;
 
@@ -131,37 +135,37 @@ create policy "profilo: leggo il mio" on public.profiles for select using (id = 
 
 drop policy if exists "coach: i miei clienti" on public.clients_index;
 create policy "coach: i miei clienti" on public.clients_index for all
-  using (coach_id = auth.uid() and public.is_coach()) with check (coach_id = auth.uid() and public.is_coach());
+  using (coach_id = auth.uid() and private.is_coach()) with check (coach_id = auth.uid() and private.is_coach());
 drop policy if exists "cliente: la mia riga" on public.clients_index;
 create policy "cliente: la mia riga" on public.clients_index for select using (user_id = auth.uid());
 
 drop policy if exists "coach: spazio privato" on public.coach_space;
 create policy "coach: spazio privato" on public.coach_space for all
-  using (coach_id = auth.uid() and public.is_coach()) with check (coach_id = auth.uid() and public.is_coach());
+  using (coach_id = auth.uid() and private.is_coach()) with check (coach_id = auth.uid() and private.is_coach());
 
 drop policy if exists "coach: spazio pubblico" on public.coach_public;
 create policy "coach: spazio pubblico" on public.coach_public for all
-  using (coach_id = auth.uid() and public.is_coach()) with check (coach_id = auth.uid() and public.is_coach());
+  using (coach_id = auth.uid() and private.is_coach()) with check (coach_id = auth.uid() and private.is_coach());
 drop policy if exists "cliente: legge spazio pubblico" on public.coach_public;
-create policy "cliente: legge spazio pubblico" on public.coach_public for select using (coach_id = public.my_coach_id());
+create policy "cliente: legge spazio pubblico" on public.coach_public for select using (coach_id = private.my_coach_id());
 
 drop policy if exists "coach: spazi clienti" on public.client_space;
 create policy "coach: spazi clienti" on public.client_space for all
-  using (coach_id = auth.uid() and public.is_coach())
-  with check (coach_id = auth.uid() and public.is_coach() and client_id in (select id from clients_index where coach_id = auth.uid()));
+  using (coach_id = auth.uid() and private.is_coach())
+  with check (coach_id = auth.uid() and private.is_coach() and client_id in (select id from clients_index where coach_id = auth.uid()));
 drop policy if exists "cliente: legge il suo spazio" on public.client_space;
-create policy "cliente: legge il suo spazio" on public.client_space for select using (client_id = public.my_client_id());
+create policy "cliente: legge il suo spazio" on public.client_space for select using (client_id = private.my_client_id());
 
 drop policy if exists "coach: legge i diari" on public.client_log;
-create policy "coach: legge i diari" on public.client_log for select using (coach_id = auth.uid() and public.is_coach());
+create policy "coach: legge i diari" on public.client_log for select using (coach_id = auth.uid() and private.is_coach());
 drop policy if exists "cliente: il mio diario" on public.client_log;
-create policy "cliente: il mio diario" on public.client_log for select using (client_id = public.my_client_id());
+create policy "cliente: il mio diario" on public.client_log for select using (client_id = private.my_client_id());
 drop policy if exists "cliente: scrive il diario" on public.client_log;
 create policy "cliente: scrive il diario" on public.client_log for insert
-  with check (client_id = public.my_client_id() and coach_id = public.my_coach_id());
+  with check (client_id = private.my_client_id() and coach_id = private.my_coach_id());
 drop policy if exists "cliente: aggiorna il diario" on public.client_log;
 create policy "cliente: aggiorna il diario" on public.client_log for update
-  using (client_id = public.my_client_id()) with check (client_id = public.my_client_id() and coach_id = public.my_coach_id());
+  using (client_id = private.my_client_id()) with check (client_id = private.my_client_id() and coach_id = private.my_coach_id());
 
 -- ===== controllo invito prima dell'iscrizione (la pagina mostra "invito non valido" senza creare account) =====
 create or replace function public.check_invite(p_email text, p_token text) returns boolean language sql stable security definer set search_path=public as $$
@@ -175,3 +179,10 @@ grant select on public.profiles to authenticated;
 grant select, insert, update, delete on public.clients_index, public.coach_space, public.coach_public, public.client_space to authenticated;
 grant select, insert, update on public.client_log to authenticated;
 revoke all on public.app_settings from anon, authenticated;
+
+-- ===== chi non ha fatto l'accesso (anon) non tocca nessuna tabella =====
+revoke all on public.profiles, public.clients_index, public.coach_space, public.coach_public, public.client_space, public.client_log from anon;
+revoke execute on function private.is_coach(), private.my_client_id(), private.my_coach_id() from public, anon;
+grant execute on function private.is_coach(), private.my_client_id(), private.my_coach_id() to authenticated;
+-- check_invite resta chiamabile senza accesso di proposito: risponde solo sì/no e serve il codice d'invito (128 bit)
+revoke execute on function public.gate_signup(), public.handle_new_user() from public, anon, authenticated;
