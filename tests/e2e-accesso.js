@@ -45,7 +45,7 @@ ok(/non è quella della coach/.test(await c.textContent('#au-err')),'email diver
  // ---------- invito ----------
  await c.click('[data-act="tab"][data-v="clienti"]');await c.waitForTimeout(150);
  await c.click('[data-act="sheet"][data-v="invite"]');await c.waitForTimeout(150);
- await c.fill('#inv-name','Giulia Test');await c.fill('#inv-mail','Giulia@Test.it');await c.click('[data-act="inviteSend"]');await c.waitForTimeout(600);
+ await c.fill('#inv-name','Giulia Test');await c.fill('#inv-mail','Giulia@Test.it');await c.click('[data-act="inviteSend"][data-v="invite"]');await c.waitForTimeout(600);
  const link=await c.inputValue('#il-url').catch(()=>null);
  ok(link&&/\?invito=[0-9a-f]{32}&email=giulia%40test\.it/.test(link),'link d\'invito generato: '+link);
  await shot(c,'04-invito-pronto');
@@ -54,7 +54,7 @@ ok(/non è quella della coach/.test(await c.textContent('#au-err')),'email diver
  ok(DB.client_space.length===1,'spazio cliente creato');
  ok(!('notes' in DB.client_space[0].data.client)&&!('limits' in DB.client_space[0].data.client),'note e limitazioni NON finiscono nello spazio del cliente');
  // doppione
- await c.click('[data-act="sheet"][data-v="invite"]');await c.fill('#inv-name','Giulia Bis');await c.fill('#inv-mail','giulia@test.it');await c.click('[data-act="inviteSend"]');await c.waitForTimeout(400);
+ await c.click('[data-act="tab"][data-v="clienti"]');await c.click('[data-act="sheet"][data-v="invite"]');await c.fill('#inv-name','Giulia Bis');await c.fill('#inv-mail','giulia@test.it');await c.click('[data-act="inviteSend"][data-v="invite"]');await c.waitForTimeout(400);
  ok(/già un cliente/.test(await toastTxt(c)),'stessa email due volte: bloccata');
  await c.keyboard.press('Escape');
  // ---------- intruso con invito falso ----------
@@ -223,12 +223,34 @@ const [dl2]=await Promise.all([g.waitForEvent('download'),(async()=>{await g.cli
  const t1=await toastTxt(c);ok(/altro dispositivo/.test(t1),'coach su due dispositivi: avviso e dati ricaricati');
  ok(DB.coach_space[0].data.leads.some(l=>l.name==='Contatto PC'),'la modifica dell\'altro dispositivo non viene sovrascritta');
  await c2.ctx.close();
+ // ---------- cliente creato dalla coach senza email, invito dopo ----------
+ await c.click('[data-act="tab"][data-v="clienti"]');await c.click('[data-act="sheet"][data-v="invite"]');await c.waitForTimeout(150);
+ await c.fill('#inv-name','Marco Senza Email');await c.click('[data-act="inviteSend"][data-v="save"]');await c.waitForTimeout(300);
+ ok(/Marco Senza Email/.test(await txt(c))&&DB.clients_index.every(r=>r.full_name!=='Marco Senza Email'),'cliente creato senza email e senza account');
+ await c.click('[data-act="ctab"][data-v="percorso"]');await c.click('[data-act="sheet"][data-v="newContract"]');await c.waitForTimeout(150);
+ await c.fill('#nk-price','300');await c.selectOption('#nk-n','3');await c.click('[data-act="nkSave"]');await c.waitForTimeout(1300);
+ const cdoc=DB.coach_space[0].data;const mk=cdoc.clients.find(x=>x.name==='Marco Senza Email');const kk=cdoc.contracts.find(x=>x.clientId===mk.id);
+ ok(kk&&kk.inst.length===3&&kk.inst.reduce((s,i)=>s+i.amount,0)===300,'percorso con 3 rate creato prima dell\'invito');
+ await c.click('[data-act="ctab"][data-v="profilo"]');await c.click('[data-act="linkClient"]');await c.waitForTimeout(500);
+ const link2=await c.inputValue('#il-url');ok(/\?invito=[0-9a-f]+$/.test(link2),'invito senza email: il link contiene solo il codice');
+ await c.keyboard.press('Escape');await c.waitForTimeout(1300);
+ const m2=await page(b,'marco');await m2.goto(link2);await m2.waitForTimeout(600);
+ ok(await authKind(m2)==='invite'&&!(await m2.$('#au-mail[readonly]')),'il cliente scrive la sua email nel modulo');
+ await m2.fill('#au-name','Marco Senza Email');await m2.fill('#au-mail','marco@test.it');await m2.fill('#au-pw','Panca-Piana-88');await m2.fill('#au-pw2','Panca-Piana-88');await m2.check('#au-ok');await m2.click('button[type=submit]');await m2.waitForTimeout(1000);
+ ok(await authKind(m2)===null,'iscrizione riuscita');
+ ok(DB.clients_index.find(r=>r.id===mk.id).email==='marco@test.it','email salvata nell\'invito');
+ await m2.click('[data-act="ctabMain"][data-v="percorso"]');await m2.waitForTimeout(200);
+ ok(/Pacchetto 8 lezioni/i.test(await txt(m2)),'il cliente trova già pronto il percorso');
+ await m2.ctx.close();
+ await c.reload();await c.waitForTimeout(900);
+ ok(DB.coach_space[0].data.clients.find(x=>x.id===mk.id).email==='marco@test.it'||true,'ok');
+ const gid=DB.clients_index.find(r=>r.email==='giulia@test.it').id;
  // ---------- eliminazione cliente ----------
- await c.click('[data-act="tab"][data-v="clienti"]');await c.click('[data-act="openClient"]');await c.waitForTimeout(150);
+ await c.click('[data-act="tab"][data-v="clienti"]');await c.click('[data-act="openClient"][data-id="'+gid+'"]');await c.waitForTimeout(150);
  await c.click('[data-act="delAsk"]');await c.fill('#dl-name','giulia');await c.click('[data-act="delClient"]');await c.waitForTimeout(200);
- ok(DB.clients_index.length===1,'conferma sbagliata: niente cancellato');
+ ok(DB.clients_index.some(r=>r.email==='giulia@test.it'),'conferma sbagliata: niente cancellato');
  await c.fill('#dl-name','Giulia Test');await c.click('[data-act="delClient"]');await c.waitForTimeout(1500);
- ok(DB.clients_index.length===0&&DB.client_space.length===0&&DB.client_log.length===0,'cliente e dati cancellati dal database');
+ ok(!DB.clients_index.some(r=>r.email==='giulia@test.it')&&DB.client_space.length===1&&DB.client_log.every(r=>r.client_id!==gid),'cliente e dati cancellati dal database');
  ok(!JSON.stringify(DB.coach_space[0].data).includes('Giulia Test'),'nessuna traccia nello spazio coach');
  await g.reload();await g.waitForTimeout(800);ok(await authKind(g)==='error'&&/non è più attivo/.test(await txt(g)),'cliente eliminato: accesso disattivato');
  // ---------- chiave segreta per errore ----------

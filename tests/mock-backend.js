@@ -31,7 +31,7 @@ function defaults(t,o){o=Object.assign({},o);
 function insertRow(t,o,uid){
  o=defaults(t,o);
  if(DB[t].some(r=>r[PK[t]]===o[PK[t]]))return err('duplicate key value violates unique constraint','23505',409);
- if(t==='clients_index'&&DB[t].some(r=>r.coach_id===o.coach_id&&r.email.toLowerCase()===String(o.email).toLowerCase()))return err('duplicate key value violates unique constraint "clients_index_email"','23505',409);
+ if(t==='clients_index'&&o.email&&DB[t].some(r=>r.coach_id===o.coach_id&&r.email&&r.email.toLowerCase()===String(o.email).toLowerCase()))return err('duplicate key value violates unique constraint "clients_index_email"','23505',409);
  if((t==='client_space'||t==='client_log')&&!DB.clients_index.some(r=>r.id===o.client_id))return err('violates foreign key constraint','23503',409);
  if(!can(t,'insert',o,uid))return err('new row violates row-level security policy for table "'+t+'"','42501',403);
  if(o.data&&JSON.stringify(o.data).length>=1000000)return err('check constraint size','23514',400);
@@ -64,15 +64,15 @@ function handle(op){
    if(op.name==='save_push_sub'){DB.push_subs=DB.push_subs.filter(x=>x.endpoint!==op.args.p_endpoint);DB.push_subs.push({endpoint:op.args.p_endpoint,user_id:op.uid});return {data:null,error:null};}
    if(op.name==='delete_push_sub'){DB.push_subs=DB.push_subs.filter(x=>!(x.endpoint===op.args.p_endpoint&&x.user_id===op.uid));return {data:null,error:null};}
    if(op.name==='calendar_token'){const pr=DB.profiles.find(p=>p.id===op.uid);if(!pr||pr.role!=='coach')return err('Solo la coach');let t=DB.cal_tokens.find(x=>x.coach_id===op.uid);if(op.args.p_reset&&t){DB.cal_tokens=DB.cal_tokens.filter(x=>x!==t);t=null;}if(!t){t={coach_id:op.uid,token:crypto.randomBytes(24).toString('hex')};DB.cal_tokens.push(t);}return {data:t.token,error:null};}
-   if(op.name==='check_invite'){const a=op.args;return {data:DB.clients_index.some(r=>r.email.toLowerCase()===String(a.p_email).toLowerCase()&&r.invite_token===a.p_token&&!r.user_id&&new Date(r.invite_expires)>new Date()),error:null};}return err('no rpc');
+   if(op.name==='check_invite'){const a=op.args;const em=String(a.p_email||'').toLowerCase();return {data:DB.clients_index.some(r=>r.invite_token===a.p_token&&!r.user_id&&new Date(r.invite_expires)>new Date()&&(em?(!r.email||r.email.toLowerCase()===em):!r.email)),error:null};}return err('no rpc');
   case 'signup':{const email=String(op.email).toLowerCase(),meta=op.meta||{};
    if(DB.users.some(u=>u.email===email))return err('User already registered','user_already_exists',422);
    const isCoach=email===S.coach_email&&!DB.profiles.some(p=>p.role==='coach');
-   const inv=DB.clients_index.find(r=>r.email.toLowerCase()===email&&r.invite_token===(meta.invite_token||'')&&!r.user_id&&new Date(r.invite_expires)>new Date());
+   const inv=DB.clients_index.find(r=>(!r.email||r.email.toLowerCase()===email)&&r.invite_token===(meta.invite_token||'')&&!r.user_id&&new Date(r.invite_expires)>new Date());
    if(!isCoach&&!inv)return err('Database error saving new user','unexpected_failure',500);
    const u={id:crypto.randomUUID(),email};DB.users.push(Object.assign({password:op.password,meta},u));
    DB.profiles.push({id:u.id,role:isCoach?'coach':'client',full_name:meta.full_name||email});
-   if(inv){inv.user_id=u.id;inv.invite_token=null;}
+   if(inv){inv.user_id=u.id;inv.invite_token=null;if(!inv.email)inv.email=email;}
    return {data:{user:u,session:S.confirm?null:{user:u}},error:null};}
   case 'signin':{const u=DB.users.find(x=>x.email===String(op.email).toLowerCase()&&x.password===op.password);if(!u)return err('Invalid login credentials','invalid_credentials',400);return {data:{user:{id:u.id,email:u.email},session:{user:{id:u.id,email:u.email}}},error:null};}
   case 'reset':return {data:{},error:null};

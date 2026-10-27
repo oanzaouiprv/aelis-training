@@ -95,7 +95,7 @@ function show(kind,o){
  else if(kind==='newpass')h=frame('Scegli la nuova password','Almeno '+PW_MIN+' caratteri, con lettere e numeri.',
   '<form data-form="newpass" class="stack" novalidate>'+field('au-pw','Nuova password','password','autocomplete="new-password" required minlength="'+PW_MIN+'"')+field('au-pw2','Ripeti la password','password','autocomplete="new-password" required')+ERR+'<button class="btn primary lg block" type="submit">Salva la password</button></form>'+(o.cancel?'<button class="lnk" data-auth="close">Annulla</button>':''));
  else if(kind==='invite')h=frame('Ti diamo il benvenuto','Crea il tuo accesso personale ad AELIS Training.',
-  '<form data-form="invite" class="stack" novalidate>'+field('au-name','Nome e cognome','text','autocomplete="name" required value="'+esc(o.name||'')+'"')+field('au-mail','Email','email','autocomplete="username" readonly value="'+esc(o.mail)+'"')+field('au-pw','Crea una password','password','autocomplete="new-password" required minlength="'+PW_MIN+'"')+field('au-pw2','Ripeti la password','password','autocomplete="new-password" required')+
+  '<form data-form="invite" class="stack" novalidate>'+field('au-name','Nome e cognome','text','autocomplete="name" required value="'+esc(o.name||'')+'"')+(o.mail?field('au-mail','Email','email','autocomplete="username" readonly value="'+esc(o.mail)+'"'):field('au-mail','La tua email','email','autocomplete="username" inputmode="email" required'))+field('au-pw','Crea una password','password','autocomplete="new-password" required minlength="'+PW_MIN+'"')+field('au-pw2','Ripeti la password','password','autocomplete="new-password" required')+
   '<label class="chk"><input type="checkbox" id="au-ok"> <span>Ho letto l\'<a href="privacy.html" target="_blank" rel="noopener">informativa privacy</a> e acconsento al trattamento dei miei dati di allenamento e salute per seguire il percorso.</span></label>'+ERR+
   '<button class="btn primary lg block" type="submit">Crea il mio account</button></form><button class="lnk" data-auth="go" data-v="login">Ho già un account</button>');
  else if(kind==='coach')h=frame('Primo accesso della coach','Funziona una volta sola e solo con l\'email della coach impostata nel database.',
@@ -146,6 +146,7 @@ const SUB={
  async invite(f){
   const name=v('au-name'),mail=v('au-mail').toLowerCase(),p=vRaw('au-pw'),p2=vRaw('au-pw2');
   if(name.length<2){err('Scrivi nome e cognome.');return;}
+  if(!okMail(mail)){err('Scrivi un\'email valida: ti servirà per accedere.');return;}
   const pb=pwProblem(p,mail);if(pb){err(pb);return;}if(p!==p2){err('Le due password non coincidono.');return;}
   if(!$('au-ok').checked){err('Per continuare serve il consenso privacy.');return;}
   busy(f,true);err('');
@@ -198,7 +199,7 @@ async function start(a){
  const s=await sb.auth.getSession();
  const sess=s.data&&s.data.session;
  if(recovery){user=sess&&sess.user;show('newpass');return true;}
- if(inv&&okMail(invMail)){if(sess)await sb.auth.signOut({scope:'local'});await showInvite(inv,invMail);return true;}
+ if(inv&&/^[0-9a-f]{1,64}$/i.test(inv)){if(sess)await sb.auth.signOut({scope:'local'});await showInvite(inv,okMail(invMail)?invMail:'');return true;}
  if(sess)await boot(sess.user);else show('login');
  return true;
 }
@@ -260,7 +261,7 @@ function composeCoach(doc,logs){
  ov.kudos=ov.kudos||{};ov.req=ov.req||{};ov.read=ov.read||{};ov.liked=ov.liked||{};
  ['clients','contracts','programs','history','appts','leads','inbox','checks','measures','shifts','requests','scheduled','posts','invites','challenges','autos'].forEach(k=>{if(!Array.isArray(db[k]))db[k]=[];});
  db.coachMsg=db.coachMsg||{};db.seenBadges=db.seenBadges||{};db.videos=db.videos||{};
- const byId={};db.clients.forEach(c=>{byId[c.id]=c;});
+ const byId={};db.clients.forEach(c=>{byId[c.id]=c;const ix=M.index[c.id];if(ix&&ix.email&&!c.email)c.email=ix.email;});
  db.challenges.forEach(ch=>{ch.joined=[];ch.anon=[];ch.base=ch.base||{};});
  const likes={};
  logs.forEach(r=>{
@@ -470,7 +471,7 @@ async function logout(force){
  try{localStorage.removeItem('aelis-auth');}catch(e){}
  api.reset();show('login');return true;
 }
-function inviteLink(r){return base()+'?invito='+encodeURIComponent(r.invite_token)+'&email='+encodeURIComponent(r.email);}
+function inviteLink(r){return base()+'?invito='+encodeURIComponent(r.invite_token)+(r.email?'&email='+encodeURIComponent(r.email):'');}
 function inviteInfo(cid){
  const r=M.index[cid];if(!r)return null;
  const live=!r.user_id&&r.invite_token&&new Date(r.invite_expires)>new Date();
@@ -478,9 +479,9 @@ function inviteInfo(cid){
 }
 async function invite(o){
  const email=String(o.email||'').trim().toLowerCase();
- if(!okMail(email))throw new Error('Email non valida.');
+ if(email&&!okMail(email))throw new Error('Email non valida.');
  const id='c'+rand(8);
- const r=await sb.from('clients_index').insert({id:id,coach_id:user.id,email:email,full_name:o.name}).select('id,email,full_name,user_id,invite_token,invite_expires').single();
+ const r=await sb.from('clients_index').insert({id:id,coach_id:user.id,email:email||null,full_name:o.name}).select('id,email,full_name,user_id,invite_token,invite_expires').single();
  if(r.error){if(r.error.code==='23505')throw new Error('C\'è già un cliente con questa email.');throw new Error(human(r.error));}
  M.index[id]=r.data;cache();
  return {id:id,link:inviteLink(r.data)};
@@ -493,10 +494,19 @@ async function reinvite(cid){
 }
 async function linkExisting(c){
  // cliente già presente in app (per esempio da un contatto): crea solo la riga d'invito
- const email=String(c.email||'').trim().toLowerCase();if(!okMail(email))throw new Error('Aggiungi prima un\'email valida al cliente.');
- const r=await sb.from('clients_index').insert({id:c.id,coach_id:user.id,email:email,full_name:c.name}).select('id,email,full_name,user_id,invite_token,invite_expires').single();
+ // l'email è facoltativa: senza email l'invito vale solo con il codice del link e il cliente la scrive all'iscrizione
+ const email=String(c.email||'').trim().toLowerCase();if(email&&!okMail(email))throw new Error('L\'email del cliente non è valida: correggila o lasciala vuota.');
+ const r=await sb.from('clients_index').insert({id:c.id,coach_id:user.id,email:email||null,full_name:c.name}).select('id,email,full_name,user_id,invite_token,invite_expires').single();
  if(r.error){if(r.error.code==='23505')throw new Error('C\'è già un cliente con questa email.');throw new Error(human(r.error));}
  M.index[c.id]=r.data;cache();schedulePush();return inviteLink(r.data);
+}
+// la coach corregge l'email di un cliente che non ha ancora creato l'account
+async function setInviteEmail(cid,email){
+ const r0=M.index[cid];if(!r0||r0.user_id)return;
+ email=String(email||'').trim().toLowerCase();if(email&&!okMail(email))throw new Error('Email non valida.');
+ const r=await sb.from('clients_index').update({email:email||null}).eq('id',cid).is('user_id',null).select('id,email,full_name,user_id,invite_token,invite_expires').maybeSingle();
+ if(r.error){if(r.error.code==='23505')throw new Error('C\'è già un cliente con questa email.');throw new Error(human(r.error));}
+ if(r.data){M.index[cid]=r.data;cache();}
 }
 async function removeClient(cid){
  if(M.index[cid]){const r=await sb.from('clients_index').delete().eq('id',cid);if(r.error)throw new Error(human(r.error));}
@@ -572,7 +582,7 @@ async function calendarLink(reset){
  return CFG.supabaseUrl.replace(/\/$/,'')+'/functions/v1/calendar?t='+r.data;
 }
 
-window.AelisCloud={real:REAL,chatSend:chatSend,chatRead:chatRead,chatList:chatList,chatRefresh:chatRefresh,chatCanWrite:chatCanWrite,
+window.AelisCloud={real:REAL,setInviteEmail:setInviteEmail,chatSend:chatSend,chatRead:chatRead,chatList:chatList,chatRefresh:chatRefresh,chatCanWrite:chatCanWrite,
  pushState:pushState,enablePush:enablePush,disablePush:disablePushHere,notify:notify,calendarLink:calendarLink,isIOS:isIOS,standalone:standalone,start:start,changed:changed,logout:logout,invite:invite,reinvite:reinvite,inviteInfo:inviteInfo,linkExisting:linkExisting,removeClient:removeClient,changePassword:changePassword,
  _test:{composeCoach:composeCoach,decomposeCoach:decomposeCoach,composeClient:composeClient,decomposeClient:decomposeClient,mergeLog:mergeLog,pwProblem:pwProblem,push:push}};
 })();
