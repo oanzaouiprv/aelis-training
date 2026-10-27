@@ -218,6 +218,7 @@ async function boot(u){
  }
  hide();api.ready(role,M.cid);
  if(M.pending)push();else if(role==='coach')schedulePush();
+ startLive();
 }
 
 /* ---------- cache locale (per aprire l'app anche senza rete) ---------- */
@@ -463,6 +464,7 @@ function setStatus(s){document.body.dataset.sync=s;if(!stEl)stEl=document.getEle
 async function logout(force){
  if(M.pending&&!force){api.toast('Ci sono modifiche non ancora salvate: collegati a internet prima di uscire.');push();return false;}
  try{if(user)localStorage.removeItem(CK(user.id));}catch(e){}
+ stopLive();try{await disablePushHere(true);}catch(e){}
  role=null;M=newMeta();
  try{await sb.auth.signOut();}catch(e){}
  try{localStorage.removeItem('aelis-auth');}catch(e){}
@@ -502,6 +504,75 @@ async function removeClient(cid){
 }
 function changePassword(){show('newpass',{cancel:true});}
 
-window.AelisCloud={real:REAL,start:start,changed:changed,logout:logout,invite:invite,reinvite:reinvite,inviteInfo:inviteInfo,linkExisting:linkExisting,removeClient:removeClient,changePassword:changePassword,
+/* ===================== CHAT (tempo reale) ===================== */
+let chan=null;
+const chatAll=[];   // messaggi caricati: {id,client_id,coach_id,sender,body,created_at,read_at}
+function chatMerge(list){list.forEach(m=>{const i=chatAll.findIndex(x=>x.id===m.id);if(i>=0)chatAll[i]=m;else chatAll.push(m);});chatAll.sort((a,b)=>a.created_at<b.created_at?-1:1);}
+async function chatRefresh(){
+ if(!sb||!role)return;
+ const r=await sb.from('messages').select('id,client_id,coach_id,sender,body,created_at,read_at').order('created_at',{ascending:false}).limit(600);
+ if(!r.error){chatAll.length=0;chatMerge(r.data||[]);api.chatChanged&&api.chatChanged();}
+}
+function startLive(){
+ chatRefresh();
+ try{
+  stopLive();
+  chan=sb.channel('aelis-chat').on('postgres_changes',{event:'*',schema:'public',table:'messages'},p=>{
+   if(p.new&&p.new.id){chatMerge([p.new]);api.chatChanged&&api.chatChanged(p.eventType==='INSERT'?p.new:null);}
+  }).subscribe();
+ }catch(e){}
+ refreshPush();
+}
+function stopLive(){try{if(chan&&sb)sb.removeChannel(chan);}catch(e){}chan=null;chatAll.length=0;}
+async function chatSend(cid,text){
+ const body=String(text||'').trim();if(!body)return null;
+ const row={client_id:role==='coach'?cid:M.cid,coach_id:role==='coach'?user.id:M.coach,sender:role,body:body.slice(0,2000)};
+ const r=await sb.from('messages').insert(row).select('id,client_id,coach_id,sender,body,created_at,read_at').single();
+ if(r.error)throw new Error(/Troppi/.test(r.error.message||'')?'Troppi messaggi: aspetta un attimo':human(r.error));
+ chatMerge([r.data]);return r.data;
+}
+async function chatRead(cid){
+ const other=role==='coach'?'client':'coach';const id=role==='coach'?cid:M.cid;
+ const unread=chatAll.filter(m=>m.client_id===id&&m.sender===other&&!m.read_at);if(!unread.length)return;
+ const now=new Date().toISOString();unread.forEach(m=>{m.read_at=now;});
+ try{await sb.from('messages').update({read_at:now}).eq('client_id',id).eq('sender',other).is('read_at',null);}catch(e){}
+}
+function chatList(){return chatAll;}
+function chatCanWrite(cid){if(role!=='coach')return true;return !!M.index[cid];}
+
+/* ===================== NOTIFICHE ===================== */
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const standalone=()=>window.matchMedia&&matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+function b64u(s){const p='='.repeat((4-s.length%4)%4);const b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(b,c=>c.charCodeAt(0));}
+function pushState(){
+ if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))return isIOS()&&!standalone()?'install':'unsupported';
+ if(!CFG.vapidPublicKey)return 'unsupported';
+ return Notification.permission==='granted'?(M.pushOn?'on':'granted'):Notification.permission==='denied'?'denied':'default';
+}
+async function swReg(){try{return await navigator.serviceWorker.getRegistration()||await navigator.serviceWorker.register('sw.js');}catch(e){return null;}}
+async function currentSub(){try{const reg=await navigator.serviceWorker.getRegistration();return reg&&reg.pushManager?await reg.pushManager.getSubscription():null;}catch(e){return null;}}
+async function saveSub(sub){const j=sub.toJSON();const r=await sb.rpc('save_push_sub',{p_endpoint:j.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth});if(r.error)throw r.error;M.pushOn=true;}
+async function enablePush(){
+ const st=pushState();if(st==='install'||st==='unsupported')return st;
+ const perm=await Notification.requestPermission();if(perm!=='granted')return perm;
+ const reg=await swReg();if(!reg)return 'unsupported';
+ let sub=await reg.pushManager.getSubscription();
+ if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(CFG.vapidPublicKey)});
+ await saveSub(sub);return 'on';
+}
+async function disablePushHere(silent){const sub=await currentSub();if(sub){try{await sb.rpc('delete_push_sub',{p_endpoint:sub.endpoint});}catch(e){}try{await sub.unsubscribe();}catch(e){}}M.pushOn=false;}
+async function refreshPush(){try{if(pushState()==='granted'||pushState()==='on'){const sub=await currentSub();if(sub)await saveSub(sub);}}catch(e){}api.chatChanged&&api.chatChanged();}
+async function notify(cid,title,body,url){
+ if(!sb||!role)return;try{await sb.rpc('notify',{p_client_id:cid||'',p_title:String(title).slice(0,80),p_body:String(body).slice(0,240),p_url:url||null});}catch(e){}
+}
+
+/* ===================== CALENDARIO GOOGLE ===================== */
+async function calendarLink(reset){
+ const r=await sb.rpc('calendar_token',{p_reset:!!reset});if(r.error)throw new Error(human(r.error));
+ return CFG.supabaseUrl.replace(/\/$/,'')+'/functions/v1/calendar?t='+r.data;
+}
+
+window.AelisCloud={real:REAL,chatSend:chatSend,chatRead:chatRead,chatList:chatList,chatRefresh:chatRefresh,chatCanWrite:chatCanWrite,
+ pushState:pushState,enablePush:enablePush,disablePush:disablePushHere,notify:notify,calendarLink:calendarLink,isIOS:isIOS,standalone:standalone,start:start,changed:changed,logout:logout,invite:invite,reinvite:reinvite,inviteInfo:inviteInfo,linkExisting:linkExisting,removeClient:removeClient,changePassword:changePassword,
  _test:{composeCoach:composeCoach,decomposeCoach:decomposeCoach,composeClient:composeClient,decomposeClient:decomposeClient,mergeLog:mergeLog,pwProblem:pwProblem,push:push}};
 })();

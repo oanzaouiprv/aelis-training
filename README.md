@@ -18,7 +18,7 @@ Una web app con due aree:
 | **Da fare oggi**: clienti a rischio abbandono, record, feedback, rate | Dettatura vocale delle serie e cambio esercizio se la macchina è occupata |
 | Dossier cliente, schede, percorsi e lezioni | **La tua trasformazione**: Origine, Ritmo, Potenziale, Trasformazione |
 | Contatti e provenienza dei clienti (social, sala, esterni) | Riepilogo del mese in 7 storie da condividere |
-| Inviti con link personale, video degli esercizi, backup | Questionario iniziale, trofei, sfide, check settimanale |
+| Chat interna, notifiche, Google Calendar, inviti, backup | Questionario iniziale, trofei, sfide, check settimanale |
 
 ## Il concetto
 Il logo è la **farfalla di Lorenz**: in matematica un cambiamento minuscolo può produrre conseguenze enormi. È l'idea del brand: *piccoli cambiamenti, grandi risultati*. L'animazione di apertura calcola davvero le equazioni di Lorenz: due traiettorie che partono a un millesimo di distanza si separano e disegnano la farfalla, che diventa il logo.

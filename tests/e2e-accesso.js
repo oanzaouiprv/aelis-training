@@ -27,8 +27,8 @@ const toastTxt=p=>p.evaluate(()=>{const t=document.querySelector('#overlay .toas
  ok(await c.evaluate(()=>getComputedStyle(document.querySelector('.seg')).display)==='none','selettore Coach/Cliente nascosto');
  await shot(c,'01-login');
  await c.click('[data-auth="go"][data-v="coach"]');
- await c.fill('#au-mail','intruso@test.it');await c.fill('#au-pw','Password12345');await c.fill('#au-pw2','Password12345');await c.click('button[type=submit]');await c.waitForTimeout(700);
- ok(/non è quella della coach/.test(await c.textContent('#au-err')),'email diversa da quella coach: bloccata');
+ await c.fill('#au-mail','intruso@test.it');await c.fill('#au-pw','Password12345');await c.fill('#au-pw2','Password12345');await c.click('button[type=submit]');await c.waitForSelector('#au-err:not(:empty)');
+ok(/non è quella della coach/.test(await c.textContent('#au-err')),'email diversa da quella coach: bloccata');
  await c.fill('#au-mail','aelis@test.it');await c.fill('#au-pw','corta1');await c.fill('#au-pw2','corta1');await c.click('button[type=submit]');await c.waitForTimeout(200);
  ok(/Almeno 10/.test(await c.textContent('#au-err')),'password corta rifiutata');
  await c.fill('#au-pw','Allenamento2026');await c.fill('#au-pw2','Allenamento2026');await c.click('button[type=submit]');await c.waitForTimeout(800);
@@ -144,6 +144,31 @@ const [dl2]=await Promise.all([g.waitForEvent('download'),(async()=>{await g.cli
  const kb=await c.$('[data-act="kudos"]');if(kb){await kb.click();await c.waitForTimeout(1300);}
  ok((DB.client_space[0].data.kudos||[]).length===1,'applauso inviato');
  await shot(c,'08-coach-oggi-con-cliente');
+ // ---------- chat interna e notifiche ----------
+ ok(DB.notifications.some(n=>n.title==='Lezione confermata')&&DB.notifications.some(n=>/applauso/.test(n.title)),'notifiche per lezione confermata e applauso');
+ ok(DB.notifications.some(n=>/finito l'allenamento/.test(n.title))&&DB.notifications.some(n=>/chiede una lezione/.test(n.title)),'notifiche alla coach per allenamento e richiesta');
+ await c.click('#chatbtn');await c.waitForTimeout(200);await c.click('[data-act="openChat"][data-id]');await c.waitForTimeout(200);
+ await c.fill('#chat-in','Ciao Giulia, come va la schiena?');await c.click('[data-act="chatSend"]');await c.waitForTimeout(400);
+ ok(DB.messages.length===1&&DB.messages[0].sender==='coach','la coach scrive in chat');
+ ok(DB.notifications.some(n=>n.title==='chat'),'il messaggio diventa una notifica');
+ await shot(c,'08b-chat-coach');
+ await g.reload();await g.waitForTimeout(900);
+ ok(await g.evaluate(()=>document.getElementById('chatbtn').dataset.n==='1'),'il cliente vede 1 messaggio non letto');
+ await g.click('#chatbtn');await g.waitForTimeout(300);
+ ok(/come va la schiena/.test(await txt(g)),'il cliente legge il messaggio');
+ ok(DB.messages[0].read_at,'segnato come letto');
+ await g.fill('#chat-in','Tutto bene, grazie!');await g.click('[data-act="chatSend"]');await g.waitForTimeout(400);
+ ok(DB.messages.length===2&&DB.messages[1].sender==='client','il cliente risponde');
+ await shot(g,'08c-chat-cliente');
+ ok(!!handle({kind:'q',uid:DB.clients_index[0].user_id,t:'messages',op:'insert',payload:{client_id:DB.clients_index[0].id,coach_id:DB.clients_index[0].coach_id,sender:'coach',body:'finto'}}).error,'il cliente non può scrivere a nome della coach');
+ await g.click('[data-act="back"]');await g.waitForTimeout(150);
+ ok(!/WhatsApp/.test(await txt(g)),'nessun riferimento a WhatsApp');
+ // ---------- Google Calendar ----------
+ await c.click('[data-act="back"]');await c.click('[data-act="back"]').catch(()=>{});await c.waitForTimeout(100);await c.click('[data-act="tab"][data-v="altro"]');await c.click('[data-act="open"][data-v="calendario"]');await c.waitForTimeout(150);
+ await c.click('[data-act="calLink"]');await c.waitForTimeout(300);
+ ok(/\/functions\/v1\/calendar\?t=[0-9a-f]{48}$/.test(await c.inputValue('#cal-url')),'indirizzo privato del calendario');
+ await shot(c,'08d-calendario');
+ await c.click('[data-act="tab"][data-v="oggi"]');
  for(const t of ['clienti','agenda','numeri','altro','oggi']){await c.click('[data-act="tab"][data-v="'+t+'"]');await c.waitForTimeout(120);}
  for(const pg of ['contatti','libreria','ore','automazioni','sfide','programmati','info']){await c.click('[data-act="tab"][data-v="altro"]');await c.waitForTimeout(80);const el=await c.$('[data-act="open"][data-v="'+pg+'"]');if(el){await el.click();await c.waitForTimeout(120);}}
  await c.click('[data-act="tab"][data-v="clienti"]');await c.click('[data-act="openClient"]');

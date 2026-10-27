@@ -21,6 +21,9 @@ Il ruolo non si può cambiare dall'app: non esiste nessuna regola che lo permett
 - Le funzioni interne delle regole stanno in uno schema privato, non raggiungibile dalle API. L'unica funzione aperta a chi non ha fatto l'accesso è il controllo dell'invito, che risponde solo sì o no ed è inutile senza il codice.
 - Gli inviti sono codici casuali da 128 bit, legati all'email, che scadono in 14 giorni e si consumano al primo uso.
 - Limite di circa 1 MB per documento, contro gli abusi.
+- **Chat:** ogni messaggio è visibile solo alla coach e a quel cliente; nessuno può scrivere a nome di un altro; ora del server, massimo 20 messaggi al minuto.
+- **Notifiche:** la coach può notificare solo i suoi clienti, il cliente solo la sua coach (massimo 20 al minuto). Le chiavi per spedirle e il segreto tra database e funzione `push` stanno nello schema privato.
+- **Calendario:** indirizzo privato con un token casuale di 192 bit, rigenerabile in ogni momento.
 
 **Accesso**
 - Password di almeno 10 caratteri, con lettere e numeri, che non contengano il nome o l'email; si rifiutano quelle più comuni.
@@ -52,7 +55,7 @@ Il ruolo non si può cambiare dall'app: non esiste nessuna regola che lo permett
 - [ ] Informativa privacy completata e controllata.
 
 ## Da fare ogni mese (10 minuti)
-- [ ] Supabase → **Advisors → Security Advisor**: ci devono essere solo i due avvisi noti e voluti (tabella `app_settings` senza regole, controllo dell'invito aperto).
+- [ ] Supabase → **Advisors → Security Advisor**: ci devono essere solo gli avvisi noti e voluti: tabelle senza regole perché nessuno ci accede direttamente (`app_settings`, `notifications`, `push_subs`); funzioni aperte ma protette da segreto o token (`check_invite`, `push_job`, `push_gone`, `calendar_feed`); funzioni per utenti collegati che controllano da sole chi chiama (`notify`, `save_push_sub`, `delete_push_sub`, `calendar_token`); protezione password rubate (solo piano a pagamento).
 - [ ] Scarica il backup da **Profilo → Backup di tutti i dati**.
 - [ ] Esporta un backup delle tabelle in CSV.
 - [ ] Authentication → Users: ci sono solo persone che conosci?

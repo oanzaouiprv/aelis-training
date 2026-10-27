@@ -9,5 +9,6 @@ window.AELIS_CONFIG = {
   supabaseUrl: 'https://sxqahpavqoyfmmxwgwdz.supabase.co',
   supabaseAnonKey: 'sb_publishable__YE96ZE3beyxrqOhe3H7kg_6IkOyyTh',  // chiave publishable: pubblica per natura
   coachName: 'Aelis',
-  coachWhatsapp: ''       // es. '393401234567' (prefisso internazionale, senza + e spazi)
+  // chiave pubblica per le notifiche push (quella privata sta solo nel database)
+  vapidPublicKey: 'BKTfAk89Ld_8CER_60jcR99UVIEjdnXV0ef0_hIsVBQPwgGtePuJjF_B7_jjIFSGQTR4_8IFcpJ2bp1q8JkNBb4'
 };

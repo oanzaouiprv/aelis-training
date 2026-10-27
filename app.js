@@ -209,7 +209,15 @@ function seed(){
   {id:uid(),who:'Davide',ini:'DN',when:'ieri',text:'Nuovo record alla leg press, grazie coach!',stat:'Record personale',likes:9,liked:false},
   {id:uid(),who:'Coach Aelis',ini:'AE',when:'2 giorni fa',text:'Sfida di ottobre: 9 allenamenti nel mese. Chi c\'è?',stat:'Sfida',likes:12,liked:false}
  ];
- return {v:2,clients:clients,contracts:contracts,programs:[program],history:history,appts:appts,leads:leads,inbox:inbox,checks:checks,measures:measures,shifts:shifts,shift:null,weekly:weekly,requests:requests,scheduled:scheduled,coachMsg:coachMsg,posts:posts,invites:[],seenBadges:{},autos:defAutos(),challenges:defChallenges()};
+ const iso=(d,t)=>d+'T'+t+':00';
+ const chat=[
+  {id:'m1',client_id:'c1',coach_id:'demo',sender:'client',body:'Ciao Aelis! Giovedì posso arrivare alle 19:15 invece delle 19?',created_at:iso('2026-10-17','16:02'),read_at:iso('2026-10-17','16:10')},
+  {id:'m2',client_id:'c1',coach_id:'demo',sender:'coach',body:'Certo, nessun problema. Ti sposto io la lezione in agenda.',created_at:iso('2026-10-17','16:11'),read_at:iso('2026-10-17','16:12')},
+  {id:'m3',client_id:'c1',coach_id:'demo',sender:'coach',body:'Ottimo lavoro oggi sull\'hip thrust: la prossima volta proviamo 52,5 kg.',created_at:iso('2026-10-18','18:40'),read_at:null},
+  {id:'m4',client_id:'c3',coach_id:'demo',sender:'client',body:'Posso spostare la seduta di giovedì a venerdì? Ho una cena di lavoro.',created_at:iso('2026-10-18','21:05'),read_at:null},
+  {id:'m5',client_id:'c2',coach_id:'demo',sender:'client',body:'Con il lento leggero la spalla va bene, nessun fastidio.',created_at:iso('2026-10-18','09:30'),read_at:iso('2026-10-18','10:00')}
+ ];
+ return {v:2,chat:chat,clients:clients,contracts:contracts,programs:[program],history:history,appts:appts,leads:leads,inbox:inbox,checks:checks,measures:measures,shifts:shifts,shift:null,weekly:weekly,requests:requests,scheduled:scheduled,coachMsg:coachMsg,posts:posts,invites:[],seenBadges:{},autos:defAutos(),challenges:defChallenges()};
 }
 function load(){try{const t=localStorage.getItem(KEY);if(!t)return null;const d=JSON.parse(t);return d&&d.v===2?d:null;}catch(e){return null;}}
 function save(){if(REAL){if(window.AelisCloud)AelisCloud.changed();return;}try{localStorage.setItem(KEY,JSON.stringify(S.db));}catch(e){}}
@@ -495,6 +503,7 @@ function vOggi(){
  const w0=monday(TODAY);const wkMin=S.db.shifts.filter(r=>r.date>=w0).reduce((s,r)=>s+mins(r.out)-mins(r.in),0)+(sh?(Date.now()-sh.ts)/60000:0);
  const months=[mAdd(CM,-2),PM,CM];const allI=[];S.db.contracts.forEach(k=>k.inst.forEach(i=>allI.push(i)));const mv=months.map(m=>allI.filter(i=>i.paidOn&&i.paidOn.slice(0,7)===m).reduce((s,i)=>s+i.paid,0));
  let h='<div class="row between" style="align-items:flex-end"><div><h1 class="hello">Ciao Aelis</h1><p class="date">'+cap(fl(TODAY))+'</p></div><span class="av lg" aria-hidden="true">AE</span></div>';
+ h+=installCard()+pushCard();
  h+='<section class="hero'+(sh?' night':'')+'">'+(sh?
    '<div class="row"><span class="pulse" aria-hidden="true"></span><div class="grow"><div class="k">Giornata in corso</div><h3>In palestra dalle '+sh.in+'</h3><p class="small muted" id="elapsed">'+dur((Date.now()-sh.ts)/60000)+' finora</p></div></div><button class="btn primary lg block" data-act="shift">'+ic('pause')+' Fine giornata</button>'
   :'<div><div class="k">Registro ore</div><h3>Pronta a iniziare?</h3><p class="small muted" style="margin-top:6px">Un tocco quando arrivi, uno quando esci: le ore si sommano da sole.</p></div><button class="btn primary lg block" data-act="shift">'+ic('play')+' Inizia giornata</button>')+'</section>';
@@ -537,6 +546,82 @@ function srcPicker(c){
  return '<div class="card"><div class="row between"><h3>Come è arrivato/a</h3>'+srcChip(c.src)+'</div><div class="segbar" role="group" aria-label="Provenienza">'+SRCK.map(k=>'<button aria-pressed="'+(c.src===k)+'" data-act="setSrc" data-v="'+k+'"><span class="sw" style="background:var('+SRC[k].v+');border-radius:50%;margin-right:6px"></span>'+k+'</button>').join('')+'</div>'+
   (c.src?'<div class="row wrap" style="gap:6px">'+SRC[c.src].d.map(d=>'<button class="btn sm" aria-pressed="'+(c.srcD===d)+'" style="'+(c.srcD===d?'background:var(--ink);color:var(--bg);border-color:var(--ink)':'')+'" data-act="setSrcD" data-v="'+esc(d)+'">'+esc(d)+'</button>').join('')+'</div>':'<p class="small muted">Serve per capire quale canale porta più clienti: lo trovi in Numeri → Acquisizione.</p>')+'</div>';
 }
+/* ---------- chat interna ---------- */
+function chatAll(){if(REAL)return AelisCloud.chatList();if(!S.db.chat)S.db.chat=[];return S.db.chat;}
+const demoNow=()=>TODAY+'T'+hm(new Date())+':00';
+const chatOf=cid=>chatAll().filter(m=>m.client_id===cid);
+function chatUnreadFor(cid){const other=S.ui.role==='coach'?'client':'coach';return chatOf(cid).filter(m=>m.sender===other&&!m.read_at).length;}
+function chatUnreadTotal(){if(S.ui.role==='coach')return chatAll().filter(m=>m.sender==='client'&&!m.read_at).length;const c=me();return c?chatUnreadFor(c.id):0;}
+const ldate=iso=>{const d=new Date(iso);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const chatTime=iso=>{const d=new Date(iso);return hm(d);};
+function chatDay(day){const t=TODAY;if(day===t)return 'Oggi';if(day===addDays(t,-1))return 'Ieri';return cap(fl(day));}
+function chatCid(){return S.ui.role==='coach'?(S.ui.page&&S.ui.page.id):(me()&&me().id);}
+function vChats(){
+ let h=head('Messaggi','Chat private con i tuoi clienti');
+ const rows=S.db.clients.map(c=>{const ms=chatOf(c.id);return {c:c,last:ms[ms.length-1],un:chatUnreadFor(c.id)};}).filter(x=>x.last||!REAL||AelisCloud.chatCanWrite(x.c.id));
+ rows.sort((a,b)=>((b.last?b.last.created_at:'')>(a.last?a.last.created_at:''))?1:-1);
+ if(!rows.length)return h+empty('Qui trovi le chat con i clienti che hanno l\'app. Invita un cliente dalla sezione Clienti per iniziare.');
+ h+='<div class="list">'+rows.map(x=>'<button class="li" data-act="openChat" data-id="'+x.c.id+'"><span class="av">'+esc(x.c.ini)+'</span><span class="grow"><span class="t">'+esc(x.c.name)+'</span><br><span class="s one"'+(x.un?' style="color:var(--ink);font-weight:650"':'')+'>'+(x.last?(x.last.sender==='coach'?'Tu: ':'')+esc(x.last.body.slice(0,70)):'Nessun messaggio')+'</span></span>'+(x.un?'<span class="chip pink">'+x.un+'</span>':(x.last?'<span class="xs muted">'+(ldate(x.last.created_at)===TODAY?chatTime(x.last.created_at):fd(ldate(x.last.created_at)))+'</span>':''))+'</button>').join('')+'</div>';
+ return h;
+}
+function vChat(){
+ const coach=S.ui.role==='coach';const cid=chatCid();const c=client(cid);
+ if(!c)return head('Chat','')+empty('Chat non disponibile.');
+ const ms=chatOf(cid);
+ let h=coach?head(esc(c.name),'Chat privata'):head('Aelis','La tua coach · chat privata');
+ h+='<div class="chatlog" id="chatlog" aria-live="polite">';
+ if(!ms.length)h+=empty(coach?'Scrivi il primo messaggio a '+esc(c.name.split(' ')[0])+'. Lo riceve anche come notifica, se le ha attivate.':'Scrivi ad Aelis: domande, dubbi, spostamenti. Ti risponde qui, senza bisogno di WhatsApp.');
+ let lastDay='';
+ ms.forEach(m=>{const day=ldate(m.created_at);if(day!==lastDay){h+='<p class="chatday">'+chatDay(day)+'</p>';lastDay=day;}
+  const mine=m.sender===(coach?'coach':'client');
+  h+='<div class="cmsg '+(mine?'me':'them')+'"><span>'+esc(m.body)+'</span><time>'+chatTime(m.created_at)+(mine&&m.read_at?' · letto':'')+'</time></div>';});
+ h+='</div>';
+ if(!REAL||AelisCloud.chatCanWrite(cid))h+='<div class="composer"><textarea class="in" id="chat-in" rows="1" maxlength="2000" placeholder="Scrivi un messaggio…" aria-label="Messaggio" data-bind="chatDraft">'+esc(S.ui.chatDraft||'')+'</textarea><button class="btn primary" data-act="chatSend" aria-label="Invia">'+ic('send',18)+'</button></div>';
+ else h+=empty(esc(c.name.split(' ')[0])+' non ha ancora l\'app: invitalo dal suo profilo per chattare.');
+ return h;
+}
+function chatAfterRender(){
+ const pg=S.ui.page;if(!pg||(pg.name!=='chat'))return;
+ const cid=chatCid();if(!cid)return;
+ if(chatUnreadFor(cid)){if(REAL)AelisCloud.chatRead(cid).then(()=>updateChatBadge());else{const other=S.ui.role==='coach'?'client':'coach';chatOf(cid).forEach(m=>{if(m.sender===other&&!m.read_at)m.read_at=new Date().toISOString();});save();updateChatBadge();}}
+ const log=document.getElementById('chatlog');if(log){const last=log.lastElementChild;if(last)last.scrollIntoView({block:'end'});window.scrollTo(0,document.body.scrollHeight);}
+}
+function updateChatBadge(){const b=document.getElementById('chatbtn');if(!b)return;const n=chatUnreadTotal();if(n)b.dataset.n=n>9?'9+':n;else delete b.dataset.n;b.setAttribute('aria-label',n?'Messaggi, '+n+' non letti':'Messaggi');}
+function pushTo(cid,title,body,url){if(REAL&&window.AelisCloud)AelisCloud.notify(cid,title,body,url);}
+
+/* ---------- installazione e notifiche ---------- */
+let instEvt=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEvt=e;if(REAL)render();});
+const isStandalone=()=>(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+const isIOSdev=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+function dismissed(k){try{return localStorage.getItem('aelis-x-'+k)==='1';}catch(e){return false;}}
+function installCard(){
+ if(!REAL||isStandalone()||dismissed('inst'))return '';
+ const ios=isIOSdev();if(!ios&&!instEvt)return '';
+ return '<div class="card tip"><div class="row"><span class="av">'+ic('plus',18)+'</span><div class="grow"><h3>Mettila sul telefono</h3><p class="small muted">'+(ios?'In Safari tocca <b>Condividi</b> e poi <b>Aggiungi alla schermata Home</b>: si apre come un\'app, resti collegato/a e ricevi le notifiche.':'Installala come app: si apre a schermo intero, resti collegato/a e ricevi le notifiche.')+'</p></div><button class="xbtn" data-act="dismiss" data-v="inst" aria-label="Chiudi">'+ic('x',16)+'</button></div>'+(ios?'':'<button class="btn primary block" data-act="installApp">Installa l\'app</button>')+'</div>';
+}
+function pushLabel(){
+ if(!REAL)return ['Notifiche','Nella versione reale arrivano sul telefono'];
+ const st=AelisCloud.pushState();
+ return ({on:['Notifiche attive','Su questo dispositivo · tocca per disattivare'],granted:['Attiva le notifiche','Messaggi, lezioni confermate, applausi'],default:['Attiva le notifiche','Messaggi, lezioni confermate, applausi'],denied:['Notifiche bloccate','Riattivale dalle impostazioni del telefono, alla voce di questo sito o app'],install:['Notifiche','Su iPhone arrivano solo con l\'app sulla schermata Home'],unsupported:['Notifiche','Questo browser non le supporta']})[st];
+}
+function pushCard(){
+ if(!REAL||dismissed('push'))return '';const st=AelisCloud.pushState();if(st!=='default'&&st!=='granted')return '';
+ const l=S.ui.role==='coach'?'Ti avvisiamo quando un cliente ti scrive, chiede una lezione o finisce un allenamento.':'Ti avvisiamo quando Aelis ti scrive, conferma una lezione o ti manda un applauso.';
+ return '<div class="card tip"><div class="row"><span class="av">'+ic('bell',18)+'</span><div class="grow"><h3>Attiva le notifiche</h3><p class="small muted">'+l+'</p></div><button class="xbtn" data-act="dismiss" data-v="push" aria-label="Chiudi">'+ic('x',16)+'</button></div><button class="btn primary block" data-act="pushToggle">Attiva</button></div>';
+}
+
+/* ---------- Google Calendar (coach) ---------- */
+function vCalendario(){
+ let h=head('Google Calendar','Le tue lezioni nel tuo calendario');
+ if(!REAL)return h+empty('Nella versione reale qui crei il collegamento privato al tuo Google Calendar.');
+ const l=S.ui.calLink;
+ h+='<div class="card stack"><p>Lezioni, prove e appuntamenti dell\'agenda compaiono da soli nel tuo Google Calendar, in un calendario chiamato <b>AELIS Training</b>. Le lezioni annullate spariscono, quelle da confermare hanno la scritta "Da confermare".</p>'+(l?'<input class="in linkbox" id="cal-url" readonly value="'+esc(l)+'" aria-label="Indirizzo del calendario"><button class="btn primary lg block" data-act="calCopy">Copia l\'indirizzo</button>':'<button class="btn primary lg block" data-act="calLink">'+ic('cal',18)+' Mostra il mio collegamento</button>')+'</div>';
+ h+='<section class="stack">'+sec('Come aggiungerlo, una volta sola')+'<ol class="steps"><li>Premi <b>Copia l\'indirizzo</b>.</li><li>Dal <b>computer</b> apri <a href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl" target="_blank" rel="noopener">Google Calendar → Aggiungi calendario → Da URL</a>. Dal telefono Google non lo permette.</li><li>Incolla l\'indirizzo e premi <b>Aggiungi calendario</b>.</li><li>In pochi minuti "AELIS Training" compare anche nell\'app Google Calendar del telefono.</li></ol></section>';
+ h+=empty('Google aggiorna i calendari collegati da solo, di solito ogni qualche ora: una lezione appena spostata può comparire con un po\' di ritardo. Nell\'app è sempre aggiornata.');
+ if(l)h+='<a class="btn block" href="'+esc(l.replace(/^https:/,'webcal:'))+'">Aggiungi al Calendario di iPhone</a><p class="xs muted">L\'indirizzo è privato: chi lo ha vede i nomi dei tuoi appuntamenti. Se l\'hai condiviso per errore, rigeneralo.</p><button class="btn sm danger" style="align-self:flex-start" data-act="calReset">Rigenera l\'indirizzo</button>';
+ return h;
+}
+
 function invChip(i){if(!REAL||!i.cid)return '<span class="chip warn">In attesa</span>';const f=AelisCloud.inviteInfo(i.cid);if(!f)return '<span class="chip">Eliminato</span>';if(f.linked)return '<span class="chip good">Attivo</span>';return '<button class="btn sm" data-act="showLink" data-id="'+i.cid+'">'+(f.expired?'Nuovo link':'Link')+'</button>';}
 function appCard(c){
  let st='',btn='';
@@ -712,10 +797,11 @@ function nIncassi(){
 
 function accountHTML(){const cl=S.ui.role==='client';const ex='<button class="li" data-act="exportData"><span class="av">'+ic('book',18)+'</span><span class="grow"><span class="t">'+(cl?'Scarica i miei dati':'Backup di tutti i dati')+'</span><br><span class="s">'+(cl?'Un file con tutto quello che l\'app sa di te':'Scaricalo una volta al mese')+'</span></span></button>';
  if(!REAL)return '<section class="stack">'+sec('Dati')+'<div class="list">'+ex+'</div></section>';
- return '<section class="stack">'+sec('Account')+'<div class="list">'+ex+'<button class="li" data-act="changePw"><span class="av">'+ic('lock',18)+'</span><span class="grow"><span class="t">Cambia password</span></span>'+chev()+'</button><button class="li" data-act="logout"><span class="av">'+ic('out',18)+'</span><span class="grow"><span class="t">Esci</span><br><span class="s">Da questo dispositivo</span></span></button></div></section><p class="xs muted" style="text-align:center"><a href="privacy.html" target="_blank" rel="noopener">Informativa privacy</a></p>';}
+ const pl=pushLabel();const nt='<button class="li" data-act="pushToggle"><span class="av">'+ic('bell',18)+'</span><span class="grow"><span class="t">'+pl[0]+'</span><br><span class="s">'+pl[1]+'</span></span></button>';
+ return '<section class="stack">'+sec('Account')+'<div class="list">'+nt+ex+'<button class="li" data-act="changePw"><span class="av">'+ic('lock',18)+'</span><span class="grow"><span class="t">Cambia password</span></span>'+chev()+'</button><button class="li" data-act="logout"><span class="av">'+ic('out',18)+'</span><span class="grow"><span class="t">Esci</span><br><span class="s">Da questo dispositivo</span></span></button></div></section><p class="xs muted" style="text-align:center"><a href="privacy.html" target="_blank" rel="noopener">Informativa privacy</a></p>';}
 function vAltro(){
  const nl=S.db.leads.filter(l=>l.stage==='contattare'||l.stage==='svolta').length;
- const items=[['contatti','target','Contatti e lezioni di prova','Da contattare → prova → cliente',nl?'<span class="chip pink">'+nl+'</span>':''],['libreria','book','Libreria esercizi',EX.length+' esercizi con note e muscoli',''],['ore','clock','Registro ore','Ingressi, uscite e totali',''],['automazioni','bolt','Automazioni','Messaggi e promemoria che partono da soli',ph('P1')],['sfide','trophy','Sfide di gruppo','Crea sfide e guarda le classifiche',ph('P2')],['programmati','send','Messaggi programmati','Scritti da te, inviati quando decidi',ph('P1')],['booking','link','Prenotazioni da Instagram','Anteprima della pagina pubblica',ph('Subito')],['info','info','Info prototipo','Cosa è simulato, ripristina i dati','']];
+ const items=[['chats','msg','Messaggi','Chat private con i clienti',chatUnreadTotal()?'<span class="chip pink">'+chatUnreadTotal()+'</span>':''],['calendario','cal','Google Calendar','Le lezioni nel tuo calendario',''],['contatti','target','Contatti e lezioni di prova','Da contattare → prova → cliente',nl?'<span class="chip pink">'+nl+'</span>':''],['libreria','book','Libreria esercizi',EX.length+' esercizi con note e muscoli',''],['ore','clock','Registro ore','Ingressi, uscite e totali',''],['automazioni','bolt','Automazioni','Messaggi e promemoria che partono da soli',ph('P1')],['sfide','trophy','Sfide di gruppo','Crea sfide e guarda le classifiche',ph('P2')],['programmati','send','Messaggi programmati','Scritti da te, inviati quando decidi',ph('P1')],['booking','link','Prenotazioni da Instagram','Anteprima della pagina pubblica',ph('Subito')],['info','info','Info prototipo','Cosa è simulato, ripristina i dati','']];
  const HIDE=['info','booking','automazioni'];
  return '<h1 class="h2">Altro</h1><div class="list">'+items.filter(x=>!REAL||HIDE.indexOf(x[0])<0).map(x=>'<button class="li" data-act="open" data-v="'+x[0]+'"><span class="av">'+ic(x[1],18)+'</span><span class="grow"><span class="t">'+x[2]+'</span><br><span class="s">'+x[3]+'</span></span>'+x[4]+chev()+'</button>').join('')+'</div>'+accountHTML();
 }
@@ -812,6 +898,7 @@ function cHome(){
  const next=S.db.appts.filter(a=>a.clientId===c.id&&a.date>=TODAY&&a.status==='previsto').sort((a,b)=>(a.date+a.time)<(b.date+b.time)?-1:1).slice(0,2);
  const kud=histOf(c.id).filter(x=>x.kudos&&!x.kudosSeen).slice(-1)[0];
  let h='<div class="row between" style="align-items:flex-end"><div><h1 class="hello">Ciao '+esc(c.name.split(' ')[0])+'</h1><p class="date">'+cap(fl(TODAY))+'</p></div>'+(st.streak?'<span class="chip pink" style="font-size:13px;padding:5px 11px" data-tip="Settimane consecutive con almeno un allenamento">'+ic('flame',16)+' '+st.streak+' sett.</span>':'')+'</div>';
+ h+=installCard()+pushCard();
  if(!(c.answers&&c.answers.length))h+='<button class="card onb" data-act="open" data-v="onboard" style="text-align:left;cursor:pointer"><div class="row"><span class="av">'+ic('user',18)+'</span><div class="grow"><h3>Raccontaci di te</h3><p class="small muted">6 domande, 2 minuti: così Aelis prepara la scheda giusta per te.</p></div>'+chev()+'</div></button>';
  if(kud)h+='<button class="card pink" style="text-align:left;flex-direction:row;align-items:center;cursor:pointer" data-act="seeKudos" data-id="'+kud.id+'"><span class="av" style="background:var(--accent);color:var(--on-accent)">'+ic('clap',20)+'</span><span class="grow"><b>Aelis ti ha fatto un applauso</b><br><span class="small">per la seduta '+kud.key+' del '+fd(kud.date)+'</span></span>'+ic('x',16)+'</button>';
  if(ses&&!doneToday){
@@ -946,7 +1033,7 @@ function cAltro(){
  const items=[['check','heart','Check della settimana','5 domande per Aelis',ph('P1')],['sfide','trophy','Sfide di gruppo','Classifiche e sfide di squadra',ph('P2')],['metamorfosi','leaf','La tua trasformazione','Le 4 fasi del tuo percorso',''],['community','users','Community','Condividi solo quello che scegli',ph('P2')],['privacy','lock','Privacy e dati','Cosa vedi, cosa condividi, i tuoi diritti','']];
  const HIDE=['info','booking','automazioni'];
  return '<h1 class="h2">Altro</h1><div class="list">'+items.filter(x=>!REAL||HIDE.indexOf(x[0])<0).map(x=>'<button class="li" data-act="open" data-v="'+x[0]+'"><span class="av">'+ic(x[1],18)+'</span><span class="grow"><span class="t">'+x[2]+'</span><br><span class="s">'+x[3]+'</span></span>'+x[4]+chev()+'</button>').join('')+'</div>'+
-  '<div class="card"><div class="row"><span class="av">'+ic('msg',18)+'</span><div class="grow"><p style="font-weight:650">Scrivi ad Aelis</p><p class="small muted">Per ora su WhatsApp. La chat nell\'app arriva con la '+ph('P1')+'</p></div></div><button class="btn block" data-act="whatsapp">Apri WhatsApp</button></div>'+accountHTML();
+  '<button class="card" style="text-align:left;cursor:pointer" data-act="openChat"><div class="row"><span class="av">'+ic('msg',18)+'</span><div class="grow"><p style="font-weight:650">Scrivi ad Aelis</p><p class="small muted">Chat privata dentro l\'app</p></div>'+(chatUnreadTotal()?'<span class="chip pink">'+chatUnreadTotal()+'</span>':chev())+'</div></button>'+accountHTML();
 }
 const ONB=[['goal','Qual è il tuo obiettivo principale?','text','Es. sentirmi più forte, tonificare, perdere qualche chilo'],
  ['why','Perché è importante per te, adesso?','text','Quello che ti motiva davvero'],
@@ -1059,13 +1146,13 @@ function render(){
  const main=document.getElementById('main'),nav=document.getElementById('nav'),wkbar=document.getElementById('wkbar');
  let html='';const pg=S.ui.page;
  if(r==='coach'){
-  html=pg?(({cliente:vCliente,editProg:vEditProg,contatti:vContatti,libreria:vLibreria,esercizio:vEsercizio,ore:vOre,programmati:vProgrammati,booking:vBooking,info:vInfo,automazioni:vAutomazioni,sfide:vSfideCoach})[pg.name]||vOggi)():(({oggi:vOggi,clienti:vClienti,agenda:vAgenda,numeri:vNumeri,altro:vAltro})[S.ui.tab]||vOggi)();
+  html=pg?(({cliente:vCliente,editProg:vEditProg,contatti:vContatti,libreria:vLibreria,esercizio:vEsercizio,ore:vOre,programmati:vProgrammati,booking:vBooking,info:vInfo,chats:vChats,chat:vChat,calendario:vCalendario,automazioni:vAutomazioni,sfide:vSfideCoach})[pg.name]||vOggi)():(({oggi:vOggi,clienti:vClienti,agenda:vAgenda,numeri:vNumeri,altro:vAltro})[S.ui.tab]||vOggi)();
   const ur=unread().length;
   const ME='AE';nav.innerHTML=[['oggi','home','Oggi',ur||''],['clienti','users','Clienti',''],['agenda','cal','Agenda',S.db.requests.filter(x=>x.status==='attesa').length||''],['numeri','pie','Numeri',''],['altro','more','Profilo','']].map(t=>'<button data-act="tab" data-v="'+t[0]+'" aria-current="'+(S.ui.tab===t[0]&&!pg?'page':'false')+'" aria-label="'+t[2]+'">'+(t[0]==='altro'?'<span class="pill"'+(t[3]?' data-n="'+t[3]+'"':'')+'><span class="me">'+ME+'</span></span>':'<span class="pill"'+(t[3]?' data-n="'+t[3]+'"':'')+'>'+ic(t[1],26).replace('class="ic"',t[1]==='home'?'class="ic fillable"':'class="ic"')+'</span>')+'<span class="vh">'+t[2]+'</span></button>').join('');
   nav.classList.remove('hide');wkbar.innerHTML='';
  }else{
   if(S.ui.wk)html=cLive();
-  else if(pg)html=(({check:cCheck,community:cCommunity,privacy:cPrivacy,esercizio:vEsercizio,metamorfosi:cMeta,onboard:cOnboard,sfide:cSfide})[pg.name]||cHome)();
+  else if(pg)html=(({check:cCheck,community:cCommunity,privacy:cPrivacy,esercizio:vEsercizio,metamorfosi:cMeta,onboard:cOnboard,chat:vChat,sfide:cSfide})[pg.name]||cHome)();
   else html=(({home:cHome,allena:cAllena,progressi:cProgressi,percorso:cPercorso,altro:cAltro})[S.ui.ctabMain]||cHome)();
   if(S.ui.wk){nav.classList.add('hide');const w=S.ui.wk;const tot=w.items.reduce((s,i)=>s+i.sets.length,0),dn=w.items.reduce((s,i)=>s+i.sets.filter(x=>x.done).length,0);
    wkbar.innerHTML='<div class="wkbar"><button class="btn" data-act="quitWk">Esci</button><div class="grow small"><b class="num">'+dn+'/'+tot+'</b> serie<div class="bar" style="margin-top:5px"><i style="width:'+pct(dn,tot)+'%"></i></div></div><button class="btn primary" data-act="finishWk"'+(dn?'':' disabled')+'>Completa</button></div>';}
@@ -1084,6 +1171,8 @@ function render(){
  if(changed||S.ui.party)requestAnimationFrame(()=>{document.querySelectorAll('.ringarc').forEach(el=>{el.style.strokeDashoffset=el.dataset.off;});});
  else document.querySelectorAll('.ringarc').forEach(el=>{el.style.transition='none';el.style.strokeDashoffset=el.dataset.off;});
  if(changed)countUp(main);
+ if(pg&&pg.name==='chat'&&!S.ui.wk){nav.classList.add('hide');}
+ updateChatBadge();chatAfterRender();
 }
 function countUp(root){if(RM)return;root.querySelectorAll('[data-count]').forEach(el=>{const to=+el.dataset.count,fmt=el.dataset.fmt;if(!to)return;const t0=performance.now(),d=900;
  (function f(t){const p=Math.min(1,(t-t0)/d),e=1-Math.pow(1-p,3),v=to*e;el.textContent=fmt==='eur'?eur(Math.round(v)):fmt==='pct'?Math.round(v)+'%':nf(Math.round(v));if(p<1)requestAnimationFrame(f);})(t0);});}
@@ -1204,7 +1293,6 @@ const A={
   if(REAL)AelisCloud.removeClient(id).then(done).catch(e=>toast(e.message));else done();},
  logout(){if(REAL)AelisCloud.logout();},
  changePw(){if(REAL)AelisCloud.changePassword();},
- whatsapp(){const n=String(CFG.coachWhatsapp||'').replace(/\D/g,'');if(REAL&&n)window.open('https://wa.me/'+n,'_blank','noopener');else toast(REAL?'Numero WhatsApp della coach non ancora impostato':'Nell\'app vera questo pulsante apre WhatsApp con la coach.');},
  vidSave(d){const u=val('vid-url');S.db.videos=S.db.videos||{};if(!u){delete S.db.videos[d.id];save();render();toast('Video rimosso');return;}if(!/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(u)){toast('Serve un link YouTube che inizi con https://');return;}S.db.videos[d.id]=u;save();render();toast('Video salvato: lo vedono anche i clienti');},
  exportData(){const cl=S.ui.role==='client';let d=S.db;
   if(cl){const id=me().id,own=x=>x.clientId===id,c=Object.assign({},me());delete c.notes;delete c.limits;delete c.src;delete c.srcD;
@@ -1218,6 +1306,24 @@ const A={
   c._onboard={goal:v.goal,avail:v.avail||'',limits:v.limits||'',exp:v.exp,freq:v.freq,answers:c.answers,at:TODAY};
   S.db.inbox.push({id:uid(),kind:'messaggio',clientId:c.id,date:TODAY,text:'Ha compilato il questionario iniziale: '+v.goal,read:false});
   S.ui.onb=null;S.ui.page=null;save();render();go();toast('Grazie! Aelis ha ricevuto le tue risposte');},
+ openChat(d){const coach=S.ui.role==='coach';S.ui.sheet=null;S.ui.chatDraft='';
+  S.ui.page=coach?(d&&d.id?{name:'chat',id:d.id,prev:S.ui.page&&S.ui.page.name==='chat'?null:S.ui.page}:{name:'chats',prev:S.ui.page}):{name:'chat',prev:S.ui.page&&S.ui.page.name==='chat'?null:S.ui.page};render();go();},
+ chatSend(){const t=val('chat-in');if(!t)return;const cid=chatCid();if(!cid)return;S.ui.chatDraft='';
+  const done=()=>{render();const i=document.getElementById('chat-in');if(i)i.focus();};
+  if(REAL){const i=document.getElementById('chat-in');if(i)i.value='';AelisCloud.chatSend(cid,t).then(done).catch(e=>{S.ui.chatDraft=t;toast(e.message||'Messaggio non inviato');render();});}
+  else{chatAll().push({id:uid(),client_id:cid,coach_id:'demo',sender:S.ui.role,body:t.slice(0,2000),created_at:demoNow(),read_at:null});save();done();}},
+ dismiss(d){try{localStorage.setItem('aelis-x-'+d.v,'1');}catch(e){}render();},
+ installApp(){if(!instEvt)return;instEvt.prompt();instEvt.userChoice.finally(()=>{instEvt=null;render();});},
+ pushToggle(){if(!REAL){toast('Nella versione reale le notifiche arrivano sul telefono');return;}
+  const st=AelisCloud.pushState();
+  if(st==='on'){AelisCloud.disablePush().then(()=>{render();toast('Notifiche disattivate su questo dispositivo');});return;}
+  if(st==='install'){toast('Prima aggiungi l\'app alla schermata Home, poi riaprila da lì');return;}
+  if(st==='denied'){toast('Le hai bloccate: riattivale dalle impostazioni del telefono');return;}
+  if(st==='unsupported'){toast('Questo browser non supporta le notifiche');return;}
+  AelisCloud.enablePush().then(r=>{render();toast(r==='on'?'Notifiche attive':r==='denied'?'Notifiche non consentite':'Notifiche non attivate');}).catch(()=>toast('Non sono riuscito ad attivarle: riprova'));},
+ calLink(){AelisCloud.calendarLink(false).then(l=>{S.ui.calLink=l;render();}).catch(e=>toast(e.message));},
+ calReset(){AelisCloud.calendarLink(true).then(l=>{S.ui.calLink=l;render();toast('Nuovo indirizzo: aggiornalo in Google Calendar');}).catch(e=>toast(e.message));},
+ calCopy(){const l=S.ui.calLink;if(!l)return;try{navigator.clipboard.writeText(l).then(()=>toast('Indirizzo copiato'),()=>toast('Tieni premuto sull\'indirizzo per copiarlo'));}catch(e){toast('Tieni premuto sull\'indirizzo per copiarlo');}},
  like(d){const p=S.db.posts.find(x=>x.id===d.id);p.liked=!p.liked;p.likes+=p.liked?1:-1;save();render();},
 
  wrapOpen(){S.ui.wrap={i:0};render();},
@@ -1236,7 +1342,7 @@ const A={
   const st=it.sets[j];if(p.kg!=null)st.kg=p.kg;st.reps=p.reps;S.ui.sheet=null;A.setDone({i:String(i),j:String(j)});toast('Serie '+(j+1)+' segnata: '+(p.kg!=null?kgf(p.kg)+' kg × ':'')+p.reps);},
  voiceTry(d){A._dict(+S.ui.sheet.id,d.v);},
  voiceSend(){A._dict(+S.ui.sheet.id,val('vc-in'));},
- nudgeSend(d){const c=client(d.id);const t=val('nd-txt');if(!t){toast('Scrivi il messaggio');return;}S.db.scheduled.unshift({id:uid(),to:c.id,when:TODAY+' '+hm(new Date()),trigger:null,text:t});S.ui.sheet=null;save();toast('Messaggio inviato a '+c.name.split(' ')[0]+' (simulazione)');},
+ nudgeSend(d){const c=client(d.id);const t=val('nd-txt');if(!t){toast('Scrivi il messaggio');return;}if(REAL&&!AelisCloud.chatCanWrite(c.id)){toast(c.name.split(' ')[0]+' non ha ancora l\'app: invitalo per scrivergli');return;}S.ui.sheet=null;const ok=()=>{save();render();toast('Messaggio inviato in chat a '+c.name.split(' ')[0]);};if(REAL)AelisCloud.chatSend(c.id,t).then(ok).catch(e=>toast(e.message));else{chatAll().push({id:uid(),client_id:c.id,coach_id:'demo',sender:'coach',body:t,created_at:demoNow(),read_at:null});ok();}},
  autoTog(d){const a=S.db.autos.find(x=>x.id===d.id);a.on=!a.on;save();render();toast(a.t+(a.on?': attiva':': in pausa'));},
  autoSave(d){const a=S.db.autos.find(x=>x.id===d.id);const t=val('ae-txt');if(!t){toast('Il testo non può essere vuoto');return;}a.msg=t;S.ui.sheet=null;save();toast('Testo salvato');},
  chJoin(d){const ch=S.db.challenges.find(x=>x.id===d.id);const id=me().id;const k=ch.joined.indexOf(id);if(k>=0)ch.joined.splice(k,1);else ch.joined.push(id);save();render();toast(k>=0?'Non partecipi più a '+ch.title:'Partecipi a '+ch.title+'!');},
@@ -1252,6 +1358,18 @@ document.addEventListener('click',e=>{
  if(t.classList.contains('scrim')&&e.target!==t)return;
  const fn=A[t.dataset.act];if(fn){e.preventDefault();fn(t.dataset);}
 });
+/* notifiche push collegate alle azioni (solo versione reale) */
+(function(){
+ const wrap=(k,fn)=>{const o=A[k];A[k]=function(d){const pre=fn.pre?fn.pre(d):null;const r=o.apply(A,arguments);try{fn.post(d,pre);}catch(e){}return r;};};
+ wrap('kudos',{post:d=>{const h=S.db.history.find(x=>x.id===d.id);if(h&&h.kudos)pushTo(h.clientId,'Aelis ti ha fatto un applauso','Per l\'allenamento del '+fd(h.date)+'. Continua così!','?go=home');}});
+ wrap('reqOk',{post:d=>{const r=S.db.requests.find(x=>x.id===d.id);if(r)pushTo(r.clientId,'Lezione confermata',cap(fl(r.date))+' alle '+(r.to||r.from||''),'?go=percorso');}});
+ wrap('reqNo',{post:d=>{const r=S.db.requests.find(x=>x.id===d.id);if(r)pushTo(r.clientId,'Lezione non confermata','Il '+fd(r.date)+' Aelis non può: scrivile in chat per un altro orario.','?chat=1');}});
+ wrap('epSave',{pre:()=>S.ui.editProg&&S.ui.editProg.clientId,post:(d,cid)=>{if(cid&&!S.ui.editProg)pushTo(cid,'La tua scheda è pronta','Aelis ha preparato la scheda: aprila e inizia ad allenarti.','?go=allena');}});
+ wrap('finishWk',{pre:()=>S.ui.wk&&S.ui.wk.key,post:(d,key)=>{const p=S.ui.party;if(key&&p)pushTo('',me().name.split(' ')[0]+' ha finito l\'allenamento','Seduta '+key+': '+p.sets+' serie in '+p.min+' min.','?go=oggi');}});
+ wrap('reqSend',{pre:()=>({d:val('rq-d'),t:val('rq-t')}),post:(d,x)=>{if(!S.ui.sheet)pushTo('',me().name.split(' ')[0]+' chiede una lezione',fd(x.d)+' alle '+x.t,'?go=agenda');}});
+ wrap('chkSend',{post:()=>{const c=me();if(c&&!S.ui.page)pushTo('','Check di '+c.name.split(' ')[0],'Ha compilato il check della settimana.','?go=oggi');}});
+ wrap('onbSend',{pre:()=>val('onb-goal'),post:(d,goal)=>{const c=me();if(c&&!S.ui.page)pushTo('',c.name.split(' ')[0]+' ha compilato il questionario',goal||'Obiettivo e disponibilità nel suo profilo','?go=clienti');}});
+})();
 document.addEventListener('input',e=>{
  const t=e.target;
  if(t.dataset.bind){const b=t.dataset.bind;
@@ -1260,6 +1378,7 @@ document.addEventListener('input',e=>{
   if(b==='cmsg'){S.db.coachMsg[S.ui.page.id]=t.value;save();return;}
   if(b==='wkNote'){S.ui.wk.note=t.value;return;}
   if(b==='chkNote'){S.ui.chkNote=t.value;return;}
+  if(b==='chatDraft'){S.ui.chatDraft=t.value;t.style.height='auto';t.style.height=Math.min(140,t.scrollHeight)+'px';return;}
   if(b==='epName'){S.ui.editProg.sessions[S.ui.editProg.sel].name=t.value;return;}
  }
  if(t.dataset.w){const p=t.dataset.w.split(',');const s=S.ui.wk.items[+p[0]].sets[+p[1]];const v=t.value.replace(',','.');s[p[2]]=v===''?'':(isNaN(+v)?s[p[2]]:+v);return;}
@@ -1287,8 +1406,18 @@ setInterval(()=>{
  const sh=S.db.shift;if(sh){const e2=document.getElementById('elapsed');if(e2)e2.textContent=dur((Date.now()-sh.ts)/60000)+' finora';}
 },1000);
 if(REAL&&window.AelisCloud)AelisCloud.start({S:S,emptyDb:emptyDb,clientDefaults:clientDefaults,setDb:db=>{S.db=db;},reset:()=>{S.db=emptyDb();S.ui.role='coach';S.ui.page=null;S.ui.sheet=null;S.ui.wk=null;S.ui.party=null;S.ui.wrap=null;['main','nav','overlay','wkbar','party','wrap'].forEach(id=>{const e=document.getElementById(id);if(e){e.innerHTML='';e._last=null;}});},rerender:()=>render(),toast:toast,chBoard:chBoard,
- ready:(role,cid)=>{S.ui.role=role;if(cid)S.ui.asClient=cid;S.ui.page=null;S.ui.sheet=null;S.ui.wk=null;S.ui.party=null;S.ui.tab='oggi';S.ui.ctabMain='home';render();go();}});
+ ready:(role,cid)=>{S.ui.role=role;if(cid)S.ui.asClient=cid;S.ui.page=null;S.ui.sheet=null;S.ui.wk=null;S.ui.party=null;S.ui.tab='oggi';S.ui.ctabMain='home';render();go();openFromUrl(location.search);try{if(/[?&](chat|go)=/.test(location.search))history.replaceState(null,'',location.pathname);}catch(e){}},
+ chatChanged:(m)=>{const pg=S.ui.page;
+  if(m&&m.sender!==S.ui.role&&!(pg&&pg.name==='chat'&&chatCid()===m.client_id)){const c=client(m.client_id);toast(S.ui.role==='coach'?'Nuovo messaggio da '+(c?c.name.split(' ')[0]:'un cliente'):'Nuovo messaggio da Aelis');}
+  if(pg&&(pg.name==='chat'||pg.name==='chats')&&!S.ui.sheet){const a=document.activeElement;const typing=a&&a.id==='chat-in';render();if(typing){const i=document.getElementById('chat-in');if(i){i.focus();const n=i.value.length;try{i.setSelectionRange(n,n);}catch(e){}}}}
+  else updateChatBadge();}});
 else render();
+function openFromUrl(q){
+ const p=new URLSearchParams(q||'');const ch=p.get('chat'),g=p.get('go');
+ if(ch){if(S.ui.role==='coach'&&client(ch))A.openChat({id:ch});else if(S.ui.role==='client')A.openChat({});return;}
+ if(g){if(S.ui.role==='coach'&&['oggi','clienti','agenda','numeri','altro'].indexOf(g)>=0)A.tab({v:g});else if(S.ui.role==='client'&&['home','allena','progressi','percorso','altro'].indexOf(g)>=0)A.ctabMain({v:g});}
+}
+if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='open')openFromUrl(e.data.url||'');});
 (function(){const sp=document.getElementById('splash');let seen=false;try{seen=sessionStorage.getItem('aelis-splash4')==='1';}catch(e){}
  if(RM||seen||!sp)return;sp.classList.remove('hide');try{sessionStorage.setItem('aelis-splash4','1');}catch(e){}
  const cv=document.getElementById('sp-cv');const ctx=cv.getContext('2d');const dpr=Math.min(2,window.devicePixelRatio||1);

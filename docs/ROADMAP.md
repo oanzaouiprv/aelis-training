@@ -8,6 +8,8 @@ Regola: una fase alla volta, e ogni fase si prova con Aelis prima di passare all
 - App installabile (PWA), funziona offline.
 - Database v1 con regole di sicurezza e iscrizione solo su invito, testato su Postgres.
 - Accesso con email e password, primo accesso della coach, inviti via link (WhatsApp o email), password dimenticata, logout.
+- Chat interna coach-cliente in tempo reale (al posto di WhatsApp), notifiche push sul telefono, calendario privato per Google Calendar.
+- Visualizzazione stabile su ogni telefono, avviso per installare l'app.
 - Tutta l'app collegata al database: dossier, schede, agenda, percorsi, allenamenti, check, richieste, applausi, sfide, community.
 - Salvataggio offline e unione automatica tra più dispositivi.
 - Eliminazione completa del cliente, backup per la coach e "Scarica i miei dati" per i clienti, informativa privacy da completare.
@@ -25,7 +27,7 @@ Regola: una fase alla volta, e ogni fase si prova con Aelis prima di passare all
 
 ## Dopo il pilota (solo se serve)
 - Backup automatico.
-- Notifiche push sul telefono (promemoria allenamento, applausi, conferma lezioni).
+- Promemoria automatici ("domani hai lezione") tramite le notifiche.
 - Foto di confronto private (Supabase Storage).
 - Automazioni via email o notifiche push.
 - CAPTCHA invisibile (Cloudflare Turnstile) se arrivano tentativi automatici.

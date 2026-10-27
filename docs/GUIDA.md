@@ -91,7 +91,7 @@ Questo passaggio funziona **una volta sola**: dopo, nessun altro può diventare 
 
 ## Passo 6 · Privacy, prima dei clienti veri
 1. Completa `privacy.html` (nome, contatti, date) e falla controllare da un consulente: l'app tratta dati sulla salute (sonno, stress, misure, limitazioni), che per legge richiedono il consenso esplicito. L'app lo chiede già all'iscrizione.
-2. Inserisci il numero WhatsApp di Aelis in `config.js` (`coachWhatsapp`), così il pulsante "Scrivi ad Aelis" apre la chat.
+2. I clienti scrivono ad Aelis nella **chat interna** dell'app: niente numeri di telefono da condividere.
 
 ## Cosa costa davvero
 | Voce | Costo |
@@ -112,3 +112,15 @@ Nell'app non c'è intelligenza artificiale: promemoria del giorno, rischio abban
 | "Questo invito non è valido" | Il link è già stato usato o è scaduto: dal dossier del cliente → **Nuovo link**. |
 | Le email non arrivano | Controlla lo spam e il mittente verificato su Brevo (Passo 3). |
 | L'app è ferma su "Carico i tuoi dati…" | Il progetto Supabase è in pausa: riattivalo dalla dashboard. |
+
+## Notifiche sul telefono
+- Funzionano su Android (Chrome) e su iPhone con iOS 16.4 o successivo, **solo con l'app aggiunta alla schermata Home**.
+- Ognuno le attiva da **Profilo → Attiva le notifiche** (o dal riquadro in Home) e deve dire "Consenti".
+- Arrivano per: messaggi in chat, lezione confermata o rifiutata, applausi, scheda nuova (cliente); messaggi, richieste di lezione, allenamenti finiti, check e questionari (coach).
+- Le spedisce la funzione `push` su Supabase (gratis). Le chiavi segrete stanno solo nel database, nella tabella privata `private.kv`.
+
+## Google Calendar (coach)
+1. Nell'app: **Profilo → Google Calendar → Mostra il mio collegamento → Copia l'indirizzo**.
+2. Dal computer: Google Calendar → **Altri calendari → + → Da URL**, incolla e conferma.
+3. Compare il calendario "AELIS Training" anche sul telefono. Google lo aggiorna da solo ogni qualche ora.
+4. Se l'indirizzo finisce nelle mani sbagliate: **Rigenera l'indirizzo** e ripeti il punto 2.

@@ -1,8 +1,8 @@
 // Finto Supabase in memoria, con le stesse regole di accesso dello schema SQL (per testare l'app).
 const crypto=require('crypto');
-const DB={users:[],profiles:[],clients_index:[],coach_space:[],coach_public:[],client_space:[],client_log:[]};
+const DB={users:[],profiles:[],clients_index:[],coach_space:[],coach_public:[],client_space:[],client_log:[],messages:[],notifications:[],push_subs:[],cal_tokens:[]};
 const S={coach_email:'aelis@test.it',down:false,confirm:false,log:[]};
-const PK={profiles:'id',clients_index:'id',coach_space:'coach_id',coach_public:'coach_id',client_space:'client_id',client_log:'client_id'};
+const PK={messages:'id',profiles:'id',clients_index:'id',coach_space:'coach_id',coach_public:'coach_id',client_space:'client_id',client_log:'client_id'};
 let tick=0;const ts=()=>{tick++;return new Date(Date.now()+tick).toISOString().replace('Z',String(tick%1000).padStart(3,'0'))+'+00:00';};
 const clone=o=>JSON.parse(JSON.stringify(o));
 const err=(message,code,status)=>({data:null,error:{message,code,status}});
@@ -14,6 +14,9 @@ function can(t,op,row,uid){
   case 'coach_space':return !!coach&&row.coach_id===uid;
   case 'coach_public':if(coach&&row.coach_id===uid)return true;return op==='select'&&!!mc&&row.coach_id===mc.coach_id;
   case 'client_space':if(coach&&row.coach_id===uid&&(op==='select'||op==='delete'||DB.clients_index.some(r=>r.id===row.client_id&&r.coach_id===uid)))return true;return op==='select'&&!!mc&&row.client_id===mc.id;
+  case 'messages':{
+   if(coach){if(row.coach_id!==uid)return false;if(op==='select')return true;if(op==='insert')return row.sender==='coach'&&DB.clients_index.some(r=>r.id===row.client_id&&r.coach_id===uid);if(op==='update')return row.sender==='client';return false;}
+   if(!mc)return false;if(row.client_id!==mc.id)return false;if(op==='select')return true;if(op==='insert')return row.sender==='client'&&row.coach_id===mc.coach_id;if(op==='update')return row.sender==='coach';return false;}
   case 'client_log':if(op==='select'&&coach&&row.coach_id===uid)return true;if(!mc)return false;if(op==='select')return row.client_id===mc.id;if(op==='insert'||op==='update')return row.client_id===mc.id&&row.coach_id===mc.coach_id;return false;
  }return false;
 }
@@ -22,6 +25,7 @@ function finish(rows,one){if(one==='single'){if(rows.length!==1)return err('JSON
  if(one==='maybe'){if(rows.length>1)return err('multiple rows','PGRST116',406);return {data:rows[0]||null,error:null};}return {data:rows,error:null};}
 function defaults(t,o){o=Object.assign({},o);
  if(t==='clients_index'){if(!('invite_token' in o))o.invite_token=crypto.randomUUID().replace(/-/g,'');if(!('invite_expires' in o))o.invite_expires=new Date(Date.now()+14*864e5).toISOString();if(!('user_id' in o))o.user_id=null;o.created_at=ts();}
+ if(t==='messages'){o.id=o.id||crypto.randomUUID();o.created_at=new Date(Date.now()+tick++).toISOString();o.read_at=null;return o;}
  if(t!=='profiles'&&t!=='clients_index'){if(!('data' in o))o.data={};if(!o.updated_at)o.updated_at=ts();}
  return o;}
 function insertRow(t,o,uid){
@@ -31,11 +35,13 @@ function insertRow(t,o,uid){
  if((t==='client_space'||t==='client_log')&&!DB.clients_index.some(r=>r.id===o.client_id))return err('violates foreign key constraint','23503',409);
  if(!can(t,'insert',o,uid))return err('new row violates row-level security policy for table "'+t+'"','42501',403);
  if(o.data&&JSON.stringify(o.data).length>=1000000)return err('check constraint size','23514',400);
- DB[t].push(o);return {data:o,error:null};
+ DB[t].push(o);
+ if(t==='messages'){const ix=DB.clients_index.find(r=>r.id===o.client_id);const to=o.sender==='client'?o.coach_id:(ix&&ix.user_id);if(to)DB.notifications.push({to_user:to,title:'chat',body:o.body,url:'?chat='+o.client_id});}
+ return {data:o,error:null};
 }
 function q(op){
  const {uid,t,f,payload,one,ret}=op;if(!DB[t])return err('relation does not exist','42P01',404);
- if(op.op==='select')return finish(clone(DB[t].filter(r=>match(r,f)&&can(t,'select',r,uid))),one);
+ if(op.op==='select'){let rows=clone(DB[t].filter(r=>match(r,f)&&can(t,'select',r,uid)));if(op.order){const [c,asc]=op.order;rows.sort((a,b)=>(a[c]<b[c]?-1:a[c]>b[c]?1:0)*(asc?1:-1));}if(op.limit)rows=rows.slice(0,op.limit);return finish(rows,one);}
  if(op.op==='insert'){const arr=[].concat(payload),out=[];for(const o of arr){const r=insertRow(t,o,uid);if(r.error)return r;out.push(r.data);}return ret?finish(clone(out),one):{data:null,error:null};}
  if(op.op==='update'){const rows=DB[t].filter(r=>match(r,f)&&can(t,'select',r,uid)&&can(t,'update',r,uid));const out=[];
   for(const r of rows){const n=Object.assign({},r,payload);if(!can(t,'update',n,uid))return err('new row violates row-level security policy','42501',403);Object.assign(r,payload);out.push(r);}
@@ -53,7 +59,12 @@ function handle(op){
  if(S.down)return err('TypeError: Failed to fetch');
  switch(op.kind){
   case 'q':return q(op);
-  case 'rpc':if(op.name==='check_invite'){const a=op.args;return {data:DB.clients_index.some(r=>r.email.toLowerCase()===String(a.p_email).toLowerCase()&&r.invite_token===a.p_token&&!r.user_id&&new Date(r.invite_expires)>new Date()),error:null};}return err('no rpc');
+  case 'rpc':
+   if(op.name==='notify'){const u=op.uid;const pr=DB.profiles.find(p=>p.id===u);let to=null;if(pr&&pr.role==='coach'){const ix=DB.clients_index.find(r=>r.id===op.args.p_client_id&&r.coach_id===u);to=ix&&ix.user_id;}else{const mc=DB.clients_index.find(r=>r.user_id===u);to=mc&&mc.coach_id;}if(to)DB.notifications.push({to_user:to,from:u,title:op.args.p_title,body:op.args.p_body,url:op.args.p_url});return {data:null,error:null};}
+   if(op.name==='save_push_sub'){DB.push_subs=DB.push_subs.filter(x=>x.endpoint!==op.args.p_endpoint);DB.push_subs.push({endpoint:op.args.p_endpoint,user_id:op.uid});return {data:null,error:null};}
+   if(op.name==='delete_push_sub'){DB.push_subs=DB.push_subs.filter(x=>!(x.endpoint===op.args.p_endpoint&&x.user_id===op.uid));return {data:null,error:null};}
+   if(op.name==='calendar_token'){const pr=DB.profiles.find(p=>p.id===op.uid);if(!pr||pr.role!=='coach')return err('Solo la coach');let t=DB.cal_tokens.find(x=>x.coach_id===op.uid);if(op.args.p_reset&&t){DB.cal_tokens=DB.cal_tokens.filter(x=>x!==t);t=null;}if(!t){t={coach_id:op.uid,token:crypto.randomBytes(24).toString('hex')};DB.cal_tokens.push(t);}return {data:t.token,error:null};}
+   if(op.name==='check_invite'){const a=op.args;return {data:DB.clients_index.some(r=>r.email.toLowerCase()===String(a.p_email).toLowerCase()&&r.invite_token===a.p_token&&!r.user_id&&new Date(r.invite_expires)>new Date()),error:null};}return err('no rpc');
   case 'signup':{const email=String(op.email).toLowerCase(),meta=op.meta||{};
    if(DB.users.some(u=>u.email===email))return err('User already registered','user_already_exists',422);
    const isCoach=email===S.coach_email&&!DB.profiles.some(p=>p.role==='coach');
