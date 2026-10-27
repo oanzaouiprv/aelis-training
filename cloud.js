@@ -54,7 +54,7 @@ function human(e){
  if(/invalid login credentials/i.test(m))return 'Email o password non corretti.';
  if(/email not confirmed/i.test(m))return 'Prima conferma l\'email: apri il link che ti abbiamo inviato (controlla anche lo spam).';
  if(/already registered|already exists/i.test(m))return 'Esiste già un account con questa email: accedi.';
- if(/invito|database error saving new user/i.test(m))return 'Questo invito non è valido o è scaduto. Chiedi ad Aelis un nuovo link.';
+ if(/invito|database error saving new user|unexpected_failure|unexpected failure/i.test(m)||e&&e.code==='unexpected_failure')return 'Questo invito non è valido o è scaduto. Chiedi ad Aelis un nuovo link.';
  if(/weak|pwned|password should/i.test(m))return 'Password troppo debole: usane una più lunga e meno comune.';
  if(/same password|different from the old/i.test(m))return 'La nuova password deve essere diversa da quella attuale.';
  if(/fetch|network|failed to fetch|load failed/i.test(m))return 'Connessione assente. Riprova quando sei online.';
@@ -164,7 +164,7 @@ const SUB={
   busy(f,true);err('');
   const r=await sb.auth.signUp({email:mail,password:p,options:{emailRedirectTo:base(),data:{full_name:name||'Coach'}}});
   busy(f,false);
-  if(r.error){err(/invito|database error/i.test(r.error.message||'')?'Questa email non è quella della coach, oppure l\'account coach esiste già.':human(r.error));return;}
+  if(r.error){err((/invito|database error|unexpected/i.test(r.error.message||'')||r.error.status===500)?'Questa email non è quella della coach, oppure l\'account coach esiste già.':human(r.error));return;}
   if(r.data.session)await boot(r.data.user);
   else show('sent',{msg:'Ti abbiamo mandato un\'email a '+mail+': apri il link per attivare l\'account coach.'});
  }
