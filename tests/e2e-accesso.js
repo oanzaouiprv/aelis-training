@@ -26,6 +26,8 @@ const toastTxt=p=>p.evaluate(()=>{const t=document.querySelector('#overlay .toas
  ok(await authKind(c)==='login','coach vede la schermata di accesso');
  ok(await c.evaluate(()=>getComputedStyle(document.querySelector('.seg')).display)==='none','selettore Coach/Cliente nascosto');
  await shot(c,'01-login');
+ ok(!(await c.$('[data-auth="go"][data-v="coach"]'))&&!/Prova la demo/.test(await txt(c)),'login pulito: niente primo accesso coach né demo');
+ await c.goto(URL+'?primo-accesso');await c.waitForTimeout(500);
  await c.click('[data-auth="go"][data-v="coach"]');
  await c.fill('#au-mail','intruso@test.it');await c.fill('#au-pw','Password12345');await c.fill('#au-pw2','Password12345');await c.click('button[type=submit]');await c.waitForSelector('#au-err:not(:empty)');
 ok(/non è quella della coach/.test(await c.textContent('#au-err')),'email diversa da quella coach: bloccata');

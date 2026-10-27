@@ -71,7 +71,7 @@ L'email integrata di Supabase invia pochissimi messaggi e solo agli indirizzi de
 **Controllo:** dall'app, "Password dimenticata?" con la tua email fa arrivare l'email entro un minuto. Controlla anche lo spam.
 
 ## Passo 4 · Primo accesso di Aelis
-1. Aelis apre il sito e sceglie **Primo accesso della coach**.
+1. Aelis apre il sito con `?primo-accesso` alla fine dell'indirizzo e sceglie **Primo accesso della coach** (il link è nascosto a tutti gli altri).
 2. Inserisce la sua email (quella scritta nello schema) e una password di almeno 10 caratteri con lettere e numeri.
 3. Apre il link di conferma nell'email ed entra.
 4. Sul telefono installa l'app:

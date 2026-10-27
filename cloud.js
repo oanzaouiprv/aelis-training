@@ -78,7 +78,7 @@ function mount(){
  boxEl.addEventListener('submit',e=>{e.preventDefault();const f=e.target;SUB[f.dataset.form]&&SUB[f.dataset.form](f);});
 }
 function field(id,label,type,extra){return '<label class="f">'+label+'<span class="pw"><input class="in" id="'+id+'" type="'+type+'" '+(extra||'')+'>'+(type==='password'?'<button type="button" class="eye" data-auth="eye" data-for="'+id+'" aria-label="Mostra password">Mostra</button>':'')+'</span></label>';}
-function frame(title,sub,body){return '<div class="box">'+LOGO+'<p class="wm">AELIS TRAINING</p><div class="card stack"><h1>'+title+'</h1>'+(sub?'<p class="muted small">'+sub+'</p>':'')+body+'</div><p class="foot"><a href="privacy.html" target="_blank" rel="noopener">Privacy</a> · <a href="?demo">Prova la demo</a></p><p class="foot">Piccoli cambiamenti, grandi risultati</p></div>';}
+function frame(title,sub,body){return '<div class="box">'+LOGO+'<p class="wm">AELIS TRAINING</p><div class="card stack"><h1>'+title+'</h1>'+(sub?'<p class="muted small">'+sub+'</p>':'')+body+'</div><p class="foot"><a href="privacy.html" target="_blank" rel="noopener">Privacy</a></p><p class="foot">Piccoli cambiamenti, grandi risultati</p></div>';}
 const ERR='<p class="err" id="au-err" role="alert" aria-live="assertive"></p>';
 function show(kind,o){
  o=o||{};mount();boxEl.classList.remove('hide');document.body.classList.add('locked');let h='';
@@ -88,7 +88,7 @@ function show(kind,o){
   '<button class="btn primary lg block" type="submit">Accedi</button></form>'+
   '<button class="lnk" data-auth="go" data-v="forgot">Password dimenticata?</button>'+
   '<p class="xs muted">Sei cliente e non hai ancora un account? Ti serve il link d\'invito di Aelis.</p>'+
-  '<button class="lnk xs" data-auth="go" data-v="coach">Primo accesso della coach</button>');
+  (/[?&]primo-accesso\b/.test(location.search)?'<button class="lnk xs" data-auth="go" data-v="coach">Primo accesso della coach</button>':''));
  else if(kind==='forgot')h=frame('Nuova password','Ti mandiamo un link per sceglierne una nuova.',
   '<form data-form="forgot" class="stack" novalidate>'+field('au-mail','Email','email','autocomplete="username" inputmode="email" required')+ERR+'<button class="btn primary lg block" type="submit">Invia il link</button></form><button class="lnk" data-auth="go" data-v="login">Torna all\'accesso</button>');
  else if(kind==='sent')h=frame('Controlla la posta',esc(o.msg),'<p class="small muted">Non trovi l\'email? Guarda nello spam o nelle promozioni.</p><button class="btn block" data-auth="go" data-v="login">Torna all\'accesso</button>');
