@@ -152,7 +152,8 @@ const SUB={
   const tok=M.inviteToken;
   const r=await sb.auth.signUp({email:mail,password:p,options:{emailRedirectTo:base(),data:{invite_token:tok,full_name:name,privacy_ok:new Date().toISOString()}}});
   busy(f,false);
-  if(r.error){err(human(r.error));return;}
+  // l'invito è già stato controllato: un errore 500 qui di solito è l'email di conferma che non parte
+  if(r.error){err(r.error.status===500||/sending|smtp|email/i.test(r.error.message||'')?'Non riesco a spedirti l\'email di conferma in questo momento. Non è un problema tuo: avvisa Aelis e riprova più tardi con lo stesso link.':human(r.error));return;}
   try{history.replaceState(null,'',base());}catch(e){}
   if(r.data.session)await boot(r.data.user);
   else show('sent',{msg:'Ti abbiamo mandato un\'email a '+mail+': apri il link per attivare l\'account, poi accedi.'});
