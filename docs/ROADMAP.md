@@ -10,7 +10,9 @@ Regola: una fase alla volta, e ogni fase si prova con Aelis prima di passare all
 - Accesso con email e password, primo accesso della coach, inviti via link (WhatsApp o email), password dimenticata, logout.
 - Tutta l'app collegata al database: dossier, schede, agenda, percorsi, allenamenti, check, richieste, applausi, sfide, community.
 - Salvataggio offline e unione automatica tra più dispositivi.
-- Eliminazione completa del cliente, informativa privacy da completare.
+- Eliminazione completa del cliente, backup per la coach e "Scarica i miei dati" per i clienti, informativa privacy da completare.
+- Questionario iniziale del cliente, video degli esercizi (link YouTube), demo pubblica con `?demo`.
+- Tolte le funzioni di intelligenza artificiale: restano solo regole sui dati.
 
 ## Adesso · Messa online (1 ora e mezza, vedi GUIDA.md)
 - Account GitHub, Supabase, Brevo; schema con l'email di Aelis; chiavi in `config.js`.
@@ -22,7 +24,9 @@ Regola: una fase alla volta, e ogni fase si prova con Aelis prima di passare all
 - Si correggono solo i problemi trovati.
 
 ## Dopo il pilota (solo se serve)
-- Pulsante "Scarica i miei dati" per i clienti (portabilità GDPR) e backup automatico.
+- Backup automatico.
+- Notifiche push sul telefono (promemoria allenamento, applausi, conferma lezioni).
+- Foto di confronto private (Supabase Storage).
 - Automazioni via email o notifiche push.
 - CAPTCHA invisibile (Cloudflare Turnstile) se arrivano tentativi automatici.
 - Sfide di gruppo e riepilogo del mese.

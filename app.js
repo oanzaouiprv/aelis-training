@@ -1,7 +1,7 @@
 /* AELIS Training · app (generato separando lo script da index.html, per una Content Security Policy rigorosa) */
 (function(){
 'use strict';
-const CFG=window.AELIS_CONFIG||{};const REAL=!!(CFG.supabaseUrl&&CFG.supabaseAnonKey);
+const CFG=window.AELIS_CONFIG||{};const REAL=!!(CFG.supabaseUrl&&CFG.supabaseAnonKey)&&!/[?&]demo\b/.test(location.search);
 const TODAY=REAL?(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))(new Date()):'2026-10-19';
 const KEY='aelistraining-proto-v2';
 const MESI=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
@@ -105,7 +105,7 @@ const EX=[
 const exById=id=>EX.find(e=>e.id===id);
 
 /* ---------- dati di esempio ---------- */
-function emptyDb(){return {v:2,clients:[],contracts:[],programs:[],history:[],appts:[],leads:[],inbox:[],checks:[],measures:[],shifts:[],shift:null,weekly:[],requests:[],scheduled:[],coachMsg:{},posts:[],invites:[],seenBadges:{},autos:defAutos().map(a=>Object.assign(a,{log:[]})),challenges:[]};}
+function emptyDb(){return {v:2,clients:[],contracts:[],programs:[],history:[],appts:[],leads:[],inbox:[],checks:[],measures:[],shifts:[],shift:null,weekly:[],requests:[],scheduled:[],coachMsg:{},posts:[],invites:[],seenBadges:{},autos:defAutos().map(a=>Object.assign(a,{log:[]})),challenges:[],videos:{}};}
 function inits(n){return String(n||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?';}
 function clientDefaults(o){const c=Object.assign({age:'',email:'',goal:'',level:'Principiante',status:'attivo',since:TODAY,ob:{q:false,foto:false,scheda:false},avail:'',limits:'',notes:'',lastCheck:null,checkEvery:7,program:null,contract:null,showPhotos:true,community:false,answers:[],src:null,srcD:''},o);if(!c.ini)c.ini=inits(c.name);return c;}
 function pWhen(p){if(!p.date)return p.when||'';const d=diff(p.date,TODAY);return d<=0?'oggi':d===1?'ieri':d+' giorni fa';}
@@ -318,7 +318,7 @@ function nudgeText(c){const n=c.name.split(' ')[0];const r=risk(c);
  if(r.why.some(w=>w.indexOf('rinnovo')>=0))return 'Ciao '+n+'! Il tuo percorso sta per finire e i progressi si vedono. Alla prossima lezione parliamo di come continuare?';
  return 'Ciao '+n+'! È un po\' che non ti vedo in sala: come stai? Se ti va troviamo insieme un orario comodo questa settimana, anche solo 30 minuti.';}
 
-/* ---------- riassunto AI della settimana ---------- */
+/* ---------- promemoria di oggi (regole sui dati) ---------- */
 function aiWeekly(){const out=[];const w7=addDays(TODAY,-7);
  riskList().slice(0,2).forEach(x=>out.push({c:'crit',ic:'alert',t:'<b>'+esc(x.c.name.split(' ')[0])+'</b>: '+esc(x.r.why[0].charAt(0).toLowerCase()+x.r.why[0].slice(1))+(x.r.why[1]?', e '+esc(x.r.why[1].charAt(0).toLowerCase()+x.r.why[1].slice(1)):'')+'. Rischio abbandono '+x.r.lvl+'.',a:'<button class="lnk" data-act="sheet" data-v="nudge" data-id="'+x.c.id+'">Prepara un messaggio</button>'}));
  const rec=S.db.history.filter(h=>h.date>=w7&&h.pr).slice(-1)[0];if(rec){const c=client(rec.clientId);out.push({c:'good',ic:'star',t:'<b>'+esc(c.name.split(' ')[0])+'</b> ha battuto un record: '+esc(rec.pr)+'.'+(rec.kudos?' Hai già mandato l\'applauso.':' Un applauso fa la differenza.'),a:rec.kudos?'':'<button class="lnk" data-act="kudos" data-id="'+rec.id+'">Manda un applauso</button>'});}
@@ -499,7 +499,7 @@ function vOggi(){
    '<div class="row"><span class="pulse" aria-hidden="true"></span><div class="grow"><div class="k">Giornata in corso</div><h3>In palestra dalle '+sh.in+'</h3><p class="small muted" id="elapsed">'+dur((Date.now()-sh.ts)/60000)+' finora</p></div></div><button class="btn primary lg block" data-act="shift">'+ic('pause')+' Fine giornata</button>'
   :'<div><div class="k">Registro ore</div><h3>Pronta a iniziare?</h3><p class="small muted" style="margin-top:6px">Un tocco quando arrivi, uno quando esci: le ore si sommano da sole.</p></div><button class="btn primary lg block" data-act="shift">'+ic('play')+' Inizia giornata</button>')+'</section>';
  h+='<section class="stack">'+sec('Oggi in agenda','<button class="lnk" data-act="tab" data-v="agenda">Settimana</button>')+(today.length?'<div class="list">'+today.map(apptRow).join('')+'</div>':empty('Nessun appuntamento oggi.'))+'</section>';
- {const ai=aiWeekly();if(ai.length)h+='<section class="aisum"><div class="row between" style="align-items:flex-start"><div class="row"><span class="aiico">'+ic('spark',20)+'</span><div><div class="k">Aelis AI</div><h3>Le priorità di oggi</h3></div></div>'+ph('P1')+'</div><ol>'+ai.map(x=>'<li><span class="n '+x.c+'">'+ic(x.ic,16)+'</span><div><p>'+x.t+'</p>'+x.a+'</div></li>').join('')+'</ol><p class="xs muted">'+(REAL?'Calcolato dai dati dell\'app, nessun servizio esterno.':'Scritto da Aelis AI leggendo i dati dell\'app. Nel prototipo è simulato.')+'</p></section>';}
+ {const ai=aiWeekly();if(ai.length)h+='<section class="aisum"><div class="row between" style="align-items:flex-start"><div class="row"><span class="aiico">'+ic('bell',20)+'</span><div><div class="k">Promemoria</div><h3>Da fare oggi</h3></div></div></div><ol>'+ai.map(x=>'<li><span class="n '+x.c+'">'+ic(x.ic,16)+'</span><div><p>'+x.t+'</p>'+x.a+'</div></li>').join('')+'</ol><p class="xs muted">Calcolato dai dati dell\'app.</p></section>';}
  if(ur.length)h+='<section class="stack">'+sec('Da leggere','<span class="chip">'+ur.length+'</span>')+'<div class="list">'+ur.slice(0,3).map(m=>{const c=client(m.clientId);return '<button class="li" data-act="readMsg" data-id="'+m.id+'"><span class="av">'+(c?c.ini:'?')+'</span><span class="grow"><span class="t">'+esc(c?c.name:'')+'</span><br><span class="s">'+esc(m.text)+'</span></span><span class="s num">'+fd(m.date)+'</span></button>';}).join('')+'</div></section>';
  h+='<div class="grid3">'+kpi(cnt(today.filter(a=>a.status!=='annullato').length),'Appuntamenti oggi','','data-act="tab" data-v="agenda"')+kpi(dur(wkMin),'Ore questa settimana','','data-act="open" data-v="ore"')+kpi(cnt(mv[2],'eur'),'Incassi '+MN,sparkline(mv,70,22),'data-act="tab" data-v="numeri"')+'</div>';
  const feed=S.db.history.slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,3);
@@ -509,7 +509,7 @@ function vOggi(){
 function feedCard(x){const c=client(x.clientId);const p=programOf(c);const ses=p?p.sessions.find(s=>s.key===x.key):null;const nSets=Object.keys(x.sets).reduce((s,k)=>s+x.sets[k].filter(z=>z.done).length,0);
  let prs=[];if(x.pr)prs=[x.pr];else Object.keys(x.sets).forEach(ex=>{if(exById(ex).mode==='Esterno'&&rankOf(c.id,x,ex)===1&&maxKg(c.id,ex,x.id)>0)prs.push(exById(ex).name+' '+kgf(sesMax(x,ex))+' kg');});
  return '<article class="feed"><div class="row"><span class="av">'+c.ini+srcDot(c.src)+'</span><div class="grow"><p style="font-weight:650">'+esc(c.name)+'</p><p class="xs muted">'+cap(fl(x.date))+' · '+(x.type==='coach'?'con Aelis':'in autonomia')+'</p></div>'+(x.feel?'<span class="chip">'+['','Dura','Così così','Bene','Benissimo','Al top'][x.feel]+'</span>':'')+'</div>'+
-  '<h3 class="ft">'+(ses?'Seduta '+x.key+' · '+esc(ses.name):'Allenamento')+'</h3>'+
+  '<h3 class="ft">'+(ses?(ses.name==='Seduta '+x.key?esc(ses.name):'Seduta '+x.key+' · '+esc(ses.name)):'Allenamento')+'</h3>'+
   (prs.length?'<div class="row" style="gap:8px">'+prMedal(1,30)+'<span class="small"><b>'+prs.length+' record</b> · '+esc(prs[0])+'</span></div>':'')+
   '<div class="stats"><div><b class="num">'+x.min+'\'</b><span>Durata</span></div><div><b class="num">'+nSets+'</b><span>Serie</span></div><div><b class="num">'+nf(volume(x.sets))+'</b><span>Volume kg</span></div></div>'+
   '<div class="row"><button class="btn sm kudos" aria-pressed="'+!!x.kudos+'" data-act="kudos" data-id="'+x.id+'">'+ic('clap',17)+(x.kudos?' Applauso inviato':' Applauso')+'</button><button class="btn sm ghost" data-act="openClient" data-id="'+c.id+'">Dossier</button></div></article>';}
@@ -558,14 +558,14 @@ function vCliente(){
   const bs=badgeState(c.id).filter(b=>b.ok);
   if(bs.length)h+='<div class="card"><div class="row between"><h3>Trofei di '+esc(c.name.split(' ')[0])+'</h3><span class="chip pink">'+bs.length+' di '+BADGES.length+'</span></div><div class="shelf">'+bs.map(b=>'<div class="badge">'+medal(b,52)+'<span class="bn">'+esc(b.n)+'</span></div>').join('')+'</div></div>';
   h+='<div class="card"><div class="grid2"><div><p class="xs muted">Obiettivo</p><p>'+esc(c.goal)+'</p></div><div><p class="xs muted">Disponibilità</p><p>'+esc(c.avail||'–')+'</p></div><div><p class="xs muted">Età</p><p>'+(c.age?c.age+' anni':'–')+'</p></div><div><p class="xs muted">Email</p><p style="overflow-wrap:anywhere">'+esc(c.email)+'</p></div></div><button class="btn sm" style="align-self:flex-start" data-act="viewAs" data-id="'+c.id+'">'+ic('user',16)+' Vedi l\'app come '+esc(c.name.split(' ')[0])+'</button></div>';
-  h+='<div class="card flat"><div class="row between"><h3>Limitazioni e anamnesi</h3><span class="chip">'+ic('lock',13)+' Solo coach</span></div><p>'+esc(c.limits)+'</p><p class="xs muted">Dato sanitario: visibile solo a te, mai all\'assistente AI né alla community.</p></div>';
+  h+='<div class="card flat"><div class="row between"><h3>Limitazioni e anamnesi</h3><span class="chip">'+ic('lock',13)+' Solo coach</span></div><p>'+esc(c.limits)+'</p><p class="xs muted">Dato sanitario: visibile solo a te, mai al cliente né alla community.</p></div>';
   h+='<section class="stack">'+sec('Avvio del percorso')+'<div class="list">'+[['q','Questionario iniziale','Compilato dal cliente'],['foto','Foto e misure iniziali','Alla prima lezione'],['scheda','Scheda assegnata','Dalla libreria esercizi']].map(o=>'<button class="li" data-act="obToggle" data-k="'+o[0]+'"><span class="tick" aria-pressed="'+(!!c.ob[o[0]])+'">'+ic('check',18)+'</span><span class="grow"><span class="t">'+o[1]+'</span><br><span class="s">'+o[2]+'</span></span></button>').join('')+'</div></section>';
   h+=appCard(c);
   if(c.answers.length)h+='<section class="stack">'+sec('Risposte al questionario')+'<div class="list">'+c.answers.map(a=>'<div class="li"><span class="grow"><span class="s">'+esc(a[0])+'</span><br><span>'+esc(a[1])+'</span></span></div>').join('')+'</div></section>';
  }
  if(t==='scheda'){
   const p=programOf(c);
-  if(!p)h+=empty('Nessuna scheda assegnata.')+'<button class="btn primary block" data-act="editProg" data-id="'+c.id+'">'+ic('plus',18)+' Crea la scheda</button><button class="btn block" data-act="aiDraft" data-id="'+c.id+'">'+ic('spark',18)+' Bozza AI dal questionario '+ph('P1')+'</button>';
+  if(!p)h+=empty('Nessuna scheda assegnata.')+'<button class="btn primary block" data-act="editProg" data-id="'+c.id+'">'+ic('plus',18)+' Crea la scheda</button>';
   else{
    h+='<div class="row between"><p class="small muted">Versione '+p.version+' · assegnata il '+fd(p.assigned)+'</p><button class="btn sm" data-act="editProg" data-id="'+c.id+'">'+ic('edit',16)+' Modifica</button></div>';
    p.sessions.forEach(s=>{h+='<div class="card"><div class="row between"><h3>Seduta '+s.key+' · '+esc(s.name)+'</h3><span class="chip">'+s.items.length+' esercizi</span></div><table class="tbl"><tbody>'+s.items.map(it=>{const e=exById(it.ex);return '<tr><td style="padding-left:0">'+esc(e.name)+(it.alt.length?'<br><span class="xs muted">Alternative: '+it.alt.map(a=>esc(exById(a).name)).join(', ')+'</span>':'')+'</td><td class="num r" style="white-space:nowrap;padding-right:0">'+it.sets+' × '+it.rmin+'–'+it.rmax+'<br><span class="xs muted">rec '+it.rest+'" · RIR '+it.rir+'</span></td></tr>';}).join('')+'</tbody></table></div>';});
@@ -610,8 +610,7 @@ function vCliente(){
 
 function vEditProg(){
  const c=client(S.ui.page.id);const e=S.ui.editProg;
- let h=head('Scheda di '+esc(c.name.split(' ')[0]),'Bozza · versione '+e.version+(e.ai?' · proposta dall\'AI':''));
- if(e.ai)h+='<div class="note" style="border-color:var(--accent)">'+ic('spark',18)+'<span>Bozza proposta dall\'AI dal questionario '+ph('P1')+'. Niente arriva al cliente finché non approvi.</span></div>';
+ let h=head('Scheda di '+esc(c.name.split(' ')[0]),'Bozza · versione '+e.version);
  h+='<div class="tabs" role="group" aria-label="Sedute">'+e.sessions.map((s,i)=>'<button aria-pressed="'+(e.sel===i)+'" data-act="epSel" data-v="'+i+'">Seduta '+s.key+'</button>').join('')+'<button data-act="epAddSes" aria-label="Aggiungi seduta">'+ic('plus',14)+'</button></div>';
  const s=e.sessions[e.sel];
  h+='<label class="f">Nome della seduta<input class="in" id="ep-name" data-bind="epName" value="'+esc(s.name)+'"></label>';
@@ -711,11 +710,13 @@ function nIncassi(){
  return h;
 }
 
-function accountHTML(){if(!REAL)return '';return '<section class="stack">'+sec('Account')+'<div class="list"><button class="li" data-act="changePw"><span class="av">'+ic('lock',18)+'</span><span class="grow"><span class="t">Cambia password</span></span>'+chev()+'</button><button class="li" data-act="logout"><span class="av">'+ic('out',18)+'</span><span class="grow"><span class="t">Esci</span><br><span class="s">Da questo dispositivo</span></span></button></div></section><p class="xs muted" style="text-align:center"><a href="privacy.html" target="_blank" rel="noopener">Informativa privacy</a></p>';}
+function accountHTML(){const cl=S.ui.role==='client';const ex='<button class="li" data-act="exportData"><span class="av">'+ic('book',18)+'</span><span class="grow"><span class="t">'+(cl?'Scarica i miei dati':'Backup di tutti i dati')+'</span><br><span class="s">'+(cl?'Un file con tutto quello che l\'app sa di te':'Scaricalo una volta al mese')+'</span></span></button>';
+ if(!REAL)return '<section class="stack">'+sec('Dati')+'<div class="list">'+ex+'</div></section>';
+ return '<section class="stack">'+sec('Account')+'<div class="list">'+ex+'<button class="li" data-act="changePw"><span class="av">'+ic('lock',18)+'</span><span class="grow"><span class="t">Cambia password</span></span>'+chev()+'</button><button class="li" data-act="logout"><span class="av">'+ic('out',18)+'</span><span class="grow"><span class="t">Esci</span><br><span class="s">Da questo dispositivo</span></span></button></div></section><p class="xs muted" style="text-align:center"><a href="privacy.html" target="_blank" rel="noopener">Informativa privacy</a></p>';}
 function vAltro(){
  const nl=S.db.leads.filter(l=>l.stage==='contattare'||l.stage==='svolta').length;
  const items=[['contatti','target','Contatti e lezioni di prova','Da contattare → prova → cliente',nl?'<span class="chip pink">'+nl+'</span>':''],['libreria','book','Libreria esercizi',EX.length+' esercizi con note e muscoli',''],['ore','clock','Registro ore','Ingressi, uscite e totali',''],['automazioni','bolt','Automazioni','Messaggi e promemoria che partono da soli',ph('P1')],['sfide','trophy','Sfide di gruppo','Crea sfide e guarda le classifiche',ph('P2')],['programmati','send','Messaggi programmati','Scritti da te, inviati quando decidi',ph('P1')],['booking','link','Prenotazioni da Instagram','Anteprima della pagina pubblica',ph('Subito')],['info','info','Info prototipo','Cosa è simulato, ripristina i dati','']];
- const HIDE=['info','booking','automazioni','ai'];
+ const HIDE=['info','booking','automazioni'];
  return '<h1 class="h2">Altro</h1><div class="list">'+items.filter(x=>!REAL||HIDE.indexOf(x[0])<0).map(x=>'<button class="li" data-act="open" data-v="'+x[0]+'"><span class="av">'+ic(x[1],18)+'</span><span class="grow"><span class="t">'+x[2]+'</span><br><span class="s">'+x[3]+'</span></span>'+x[4]+chev()+'</button>').join('')+'</div>'+accountHTML();
 }
 const STAGES=[['contattare','Da contattare'],['fissata','Prova fissata'],['svolta','Prova svolta'],['cliente','Diventati clienti'],['perso','Persi']];
@@ -741,7 +742,8 @@ function vEsercizio(){
  let h=head(esc(e.name),e.mode);
  h+='<div class="card">'+bodyMap(e.pri,e.sec,'Muscoli coinvolti: '+e.name)+'</div>';
  h+='<div class="card pink"><h3>Nota tecnica di Aelis</h3><p>'+esc(e.note)+'</p></div>';
- h+='<div class="card"><div class="row"><span class="av">'+ic('video',18)+'</span><div class="grow"><h3>Video dimostrativo</h3><p class="small muted">Da registrare. Si collega da YouTube come “non in elenco”: costo zero.</p></div></div></div>';
+ {const v0=(S.db.videos||{})[e.id];const v=/^https:\/\//.test(v0||'')?v0:null;const coach=S.ui.role==='coach';
+  h+='<div class="card"><div class="row"><span class="av">'+ic('video',18)+'</span><div class="grow"><h3>Video dimostrativo</h3><p class="small muted">'+(v?'Registrato da Aelis':coach?'Incolla il link di un video YouTube “non in elenco”: costo zero.':'Aelis non ha ancora caricato il video di questo esercizio.')+'</p></div></div>'+(v?'<a class="btn primary block" href="'+esc(v)+'" target="_blank" rel="noopener">'+ic('play',18)+' Guarda il video</a>':'')+(coach?'<div class="row" style="gap:8px"><input class="in" id="vid-url" inputmode="url" placeholder="https://youtu.be/…" value="'+esc(v||'')+'" aria-label="Link del video"><button class="btn" data-act="vidSave" data-id="'+e.id+'">Salva</button></div>':'')+'</div>';}
  h+='<div class="card"><h3>Muscoli</h3><p><b>Principali:</b> '+e.pri.map(m=>MUSCLES[m]).join(', ')+'</p>'+(e.sec.length?'<p><b>Secondari:</b> '+e.sec.map(m=>MUSCLES[m]).join(', ')+'</p>':'')+'</div>';
  return h;
 }
@@ -796,7 +798,7 @@ function vBooking(){
  return h+'</div>';
 }
 function vInfo(){
- return head('Info prototipo','AELIS Training · versione 3')+'<div class="card stack"><p>'+((window.AELIS_CONFIG&&window.AELIS_CONFIG.supabaseUrl)?'Versione collegata al database.':'<b>Modalità demo</b>: dati di esempio inventati, salvati solo in questo browser. Puoi provare tutto liberamente.')+'</p><p><b>P0</b> prima versione · <b>P1</b> versione estesa · <b>P2</b> seconda fase. Dove non c\'è etichetta, è P0.</p><p>Simulati: inviti ed email, notifiche, risposte dell\'AI, video e foto.</p></div><button class="btn danger block" data-act="reset">Ripristina i dati di esempio</button>';
+ return head('Info prototipo','AELIS Training · versione 3')+'<div class="card stack"><p>'+(REAL?'Versione collegata al database.':'<b>Modalità demo</b>: dati di esempio inventati, salvati solo in questo browser. Puoi provare tutto liberamente.')+'</p><p><b>P0</b> prima versione · <b>P1</b> versione estesa · <b>P2</b> seconda fase. Dove non c\'è etichetta, è P0.</p><p>Simulati: inviti ed email, notifiche, notifiche e foto.</p></div><button class="btn danger block" data-act="reset">Ripristina i dati di esempio</button>';
 }
 
 /* ================= CLIENTE ================= */
@@ -810,6 +812,7 @@ function cHome(){
  const next=S.db.appts.filter(a=>a.clientId===c.id&&a.date>=TODAY&&a.status==='previsto').sort((a,b)=>(a.date+a.time)<(b.date+b.time)?-1:1).slice(0,2);
  const kud=histOf(c.id).filter(x=>x.kudos&&!x.kudosSeen).slice(-1)[0];
  let h='<div class="row between" style="align-items:flex-end"><div><h1 class="hello">Ciao '+esc(c.name.split(' ')[0])+'</h1><p class="date">'+cap(fl(TODAY))+'</p></div>'+(st.streak?'<span class="chip pink" style="font-size:13px;padding:5px 11px" data-tip="Settimane consecutive con almeno un allenamento">'+ic('flame',16)+' '+st.streak+' sett.</span>':'')+'</div>';
+ if(!(c.answers&&c.answers.length))h+='<button class="card onb" data-act="open" data-v="onboard" style="text-align:left;cursor:pointer"><div class="row"><span class="av">'+ic('user',18)+'</span><div class="grow"><h3>Raccontaci di te</h3><p class="small muted">6 domande, 2 minuti: così Aelis prepara la scheda giusta per te.</p></div>'+chev()+'</div></button>';
  if(kud)h+='<button class="card pink" style="text-align:left;flex-direction:row;align-items:center;cursor:pointer" data-act="seeKudos" data-id="'+kud.id+'"><span class="av" style="background:var(--accent);color:var(--on-accent)">'+ic('clap',20)+'</span><span class="grow"><b>Aelis ti ha fatto un applauso</b><br><span class="small">per la seduta '+kud.key+' del '+fd(kud.date)+'</span></span>'+ic('x',16)+'</button>';
  if(ses&&!doneToday){
   const mus={pri:[],sec:[]};ses.items.forEach(it=>{const e=exById(it.ex);e.pri.forEach(m=>{if(mus.pri.indexOf(m)<0)mus.pri.push(m);});});
@@ -940,10 +943,23 @@ function cPercorso(){
  return h+'</section>';
 }
 function cAltro(){
- const items=[['check','heart','Check della settimana','5 domande per Aelis',ph('P1')],['ai','spark','Chiedi ad Aelis AI','Spiegazioni sugli esercizi della tua scheda',ph('P2')],['sfide','trophy','Sfide di gruppo','Classifiche e sfide di squadra',ph('P2')],['metamorfosi','leaf','La tua trasformazione','Le 4 fasi del tuo percorso',''],['community','users','Community','Condividi solo quello che scegli',ph('P2')],['privacy','lock','Privacy e dati','Cosa vedi, cosa condividi, i tuoi diritti','']];
- const HIDE=['info','booking','automazioni','ai'];
+ const items=[['check','heart','Check della settimana','5 domande per Aelis',ph('P1')],['sfide','trophy','Sfide di gruppo','Classifiche e sfide di squadra',ph('P2')],['metamorfosi','leaf','La tua trasformazione','Le 4 fasi del tuo percorso',''],['community','users','Community','Condividi solo quello che scegli',ph('P2')],['privacy','lock','Privacy e dati','Cosa vedi, cosa condividi, i tuoi diritti','']];
+ const HIDE=['info','booking','automazioni'];
  return '<h1 class="h2">Altro</h1><div class="list">'+items.filter(x=>!REAL||HIDE.indexOf(x[0])<0).map(x=>'<button class="li" data-act="open" data-v="'+x[0]+'"><span class="av">'+ic(x[1],18)+'</span><span class="grow"><span class="t">'+x[2]+'</span><br><span class="s">'+x[3]+'</span></span>'+x[4]+chev()+'</button>').join('')+'</div>'+
   '<div class="card"><div class="row"><span class="av">'+ic('msg',18)+'</span><div class="grow"><p style="font-weight:650">Scrivi ad Aelis</p><p class="small muted">Per ora su WhatsApp. La chat nell\'app arriva con la '+ph('P1')+'</p></div></div><button class="btn block" data-act="whatsapp">Apri WhatsApp</button></div>'+accountHTML();
+}
+const ONB=[['goal','Qual è il tuo obiettivo principale?','text','Es. sentirmi più forte, tonificare, perdere qualche chilo'],
+ ['why','Perché è importante per te, adesso?','text','Quello che ti motiva davvero'],
+ ['exp','Che esperienza hai in palestra?','pick',['Mai allenato/a','Meno di un anno','1–3 anni','Più di 3 anni']],
+ ['freq','Quante volte a settimana riesci ad allenarti?','pick',['1','2','3','4','5 o più']],
+ ['avail','In quali giorni e orari sei disponibile?','text','Es. lun e mer dopo le 18'],
+ ['limits','Dolori, infortuni o limitazioni da sapere?','text','Scrivi “nessuna” se non ce ne sono. Lo legge solo Aelis.']];
+function cOnboard(){
+ const v=S.ui.onb||(S.ui.onb={});
+ let h=head('Raccontaci di te','Le risposte le legge solo Aelis');
+ h+=ONB.map((q,i)=>'<div class="card"><p style="font-weight:650">'+(i+1)+'. '+q[1]+'</p>'+(q[2]==='pick'?'<div class="tabs" role="group" aria-label="'+esc(q[1])+'">'+q[3].map(o=>'<button aria-pressed="'+(v[q[0]]===o)+'" data-act="onbPick" data-k="'+q[0]+'" data-v="'+esc(o)+'">'+esc(o)+'</button>').join('')+'</div>':'<textarea class="in" style="min-height:64px" id="onb-'+q[0]+'" data-bind="onb-'+q[0]+'" placeholder="'+esc(q[3])+'">'+esc(v[q[0]]||'')+'</textarea>')+'</div>').join('');
+ h+='<button class="btn primary lg block" data-act="onbSend">Invia ad Aelis</button>';
+ return h;
 }
 function cCheck(){
  const v=S.ui.chk||(S.ui.chk={});
@@ -953,21 +969,8 @@ function cCheck(){
  h+='<button class="btn primary lg block" data-act="chkSend"'+(Object.keys(CHECKQ).every(q=>v[q])?'':' disabled')+'>Invia ad Aelis</button><p class="xs muted">Uno strumento di riflessione, non un test psicologico.</p>';
  return h;
 }
-const AI_ANS=[
- {k:['bulgar','affondo'],a:'Dalla nota di Aelis: per spostare il lavoro sul gluteo, in discesa porta il busto leggermente avanti. Nella tua scheda lo fai 3 × 8–10 con 2 minuti di recupero.'},
- {k:['rir','rpe'],a:'RIR vuol dire “ripetizioni in riserva”: RIR 2 significa finire la serie quando potresti farne ancora 2. RPE è lo sforzo percepito da 1 a 10. Nella tua scheda Aelis usa il RIR.'},
- {k:['hip','thrust'],a:'Dalla nota di Aelis: solleva il bacino senza perdere la curva lombare, mento verso il petto e un secondo di pausa in alto.'},
- {k:['recuper','pausa'],a:'I recuperi vanno da 60 a 120 secondi: li trovi sotto ogni esercizio, e il timer parte da solo quando segni una serie.'}
-];
+
 function aiReply(q){const t=q.toLowerCase();if(/dolor|male|fastidi|infortun|gonfi|formicol/.test(t))return{warn:true,a:'Questo non posso valutarlo io. Ho avvisato Aelis, che ti scriverà. Se il dolore è forte o improvviso, fermati e senti un medico o un fisioterapista.'};const m=AI_ANS.find(x=>x.k.some(k=>t.indexOf(k)>=0));return{a:m?m.a:'Posso rispondere sugli esercizi della tua scheda e sulle spiegazioni di Aelis. Per tutto il resto inoltro la domanda a lei.'};}
-function cAI(){
- let h=head('Aelis AI','Risponde con le spiegazioni della tua coach '+ph('P2'));
- h+=empty('Anteprima con risposte simulate. Non cambia mai la tua scheda e su dolori o infortuni ti passa ad Aelis.');
- h+='<div class="chat">'+(S.ui.chat.length?'':'<div class="bub ai">Ciao! Sono l\'assistente di Aelis. Chiedimi come eseguire un esercizio della tua scheda.</div>')+S.ui.chat.map(m=>'<div class="bub '+(m.me?'me':'ai'+(m.warn?' warn':''))+'">'+esc(m.t)+'</div>').join('')+'</div>';
- h+='<div class="row wrap" style="gap:6px">'+['Come eseguo il bulgaro?','Cos\'è il RIR?','Ho dolore al ginocchio'].map(q=>'<button class="btn sm" data-act="aiAsk" data-v="'+esc(q)+'">'+esc(q)+'</button>').join('')+'</div>';
- h+='<div class="row"><input class="in" id="ai-in" placeholder="Scrivi una domanda" aria-label="Domanda"><button class="btn primary" data-act="aiSend" aria-label="Invia">'+ic('send',18)+'</button></div>';
- return h;
-}
 function cCommunity(){
  const c=me();let h=head('Community','Solo per chi sceglie di partecipare '+ph('P2'));
  if(!c.community)return h+'<div class="card pink"><h3>Vuoi entrare nella community?</h3><p>Vedi gli allenamenti degli altri clienti di Aelis e condividi i tuoi, se vuoi.</p><ul class="small" style="margin:0;padding-left:18px"><li>Non pubblichiamo mai niente in automatico</li><li>Scheda, carichi, misure e foto restano privati</li><li>Puoi uscire quando vuoi</li></ul><button class="btn primary block" data-act="commOn">Partecipa</button></div>';
@@ -1035,10 +1038,10 @@ function sheetHTML(){
  if(s.kind==='misure')b='<h2>Nuove misure</h2><div class="grid2">'+[['peso','Peso kg'],['vita','Vita cm'],['fianchi','Fianchi cm'],['braccio','Braccio cm'],['cosciaDx','Coscia dx cm'],['cosciaSx','Coscia sx cm']].map(f=>'<label class="f">'+f[1]+'<input class="in num" id="ms-'+f[0]+'" type="number" inputmode="decimal" step="0.1"></label>').join('')+'</div><button class="btn primary lg block" data-act="misureSave">Salva</button>';
  if(s.kind==='shiftEdit'){const r=S.db.shifts[+s.id];b='<h2>Correggi '+fd(r.date)+'</h2><div class="grid2"><label class="f">Ingresso<input class="in" id="se-in" type="time" value="'+r.in+'"></label><label class="f">Uscita<input class="in" id="se-out" type="time" value="'+r.out+'"></label></div><label class="f">Motivo<input class="in" id="se-why" placeholder="Es. dimenticato di timbrare"></label><button class="btn primary lg block" data-act="shiftSave">Salva correzione</button>';}
  if(s.kind==='newLead')b='<h2>Nuovo contatto</h2><label class="f">Nome<input class="in" id="ld-name"></label>'+srcFields('ld')+'<label class="f">Interesse<input class="in" id="ld-int" placeholder="Es. pacchetto 8 lezioni"></label><button class="btn primary lg block" data-act="leadSave">Aggiungi</button>';
- if(s.kind==='newSched')b='<h2>Messaggio programmato</h2><label class="f">A chi<select class="in" id="sc-to"><option value="tutti">Tutti i clienti</option>'+S.db.clients.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('')+'</select></label><div class="grid2"><label class="f">Giorno<input class="in" id="sc-d" type="date" value="'+addDays(TODAY,1)+'"></label><label class="f">Ora<input class="in" id="sc-t" type="time" value="07:30"></label></div><label class="f">Testo<textarea class="in" id="sc-txt"></textarea></label><button class="btn block" data-act="schedAI">'+ic('spark',16)+' Suggerisci una bozza '+ph('P1')+'</button><button class="btn primary lg block" data-act="schedSave">Programma</button>';
+ if(s.kind==='newSched')b='<h2>Messaggio programmato</h2><label class="f">A chi<select class="in" id="sc-to"><option value="tutti">Tutti i clienti</option>'+S.db.clients.map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('')+'</select></label><div class="grid2"><label class="f">Giorno<input class="in" id="sc-d" type="date" value="'+addDays(TODAY,1)+'"></label><label class="f">Ora<input class="in" id="sc-t" type="time" value="07:30"></label></div><label class="f">Testo<textarea class="in" id="sc-txt"></textarea></label><button class="btn primary lg block" data-act="schedSave">Programma</button>';
  if(s.kind==='requestLesson')b='<h2>Richiedi una lezione</h2><p class="muted">Aelis conferma o propone un altro orario.</p><div class="grid2"><label class="f">Giorno<input class="in" id="rq-d" type="date" value="'+addDays(TODAY,2)+'"></label><label class="f">Ora<input class="in" id="rq-t" type="time" value="18:00"></label></div><label class="f">Nota<input class="in" id="rq-n" placeholder="Facoltativa"></label><button class="btn primary lg block" data-act="reqSend">Invia richiesta</button>';
 
- if(s.kind==='nudge'){const c=client(s.id);b='<h2>Messaggio per '+esc(c.name.split(' ')[0])+'</h2><p class="muted">Bozza di Aelis AI, scritta per riavvicinare senza mettere pressione. Modificala come vuoi.</p><label class="f">Testo<textarea class="in" id="nd-txt">'+esc(nudgeText(c))+'</textarea></label><button class="btn primary lg block" data-act="nudgeSend" data-id="'+c.id+'">'+ic('send',18)+' Invia</button>';}
+ if(s.kind==='nudge'){const c=client(s.id);b='<h2>Messaggio per '+esc(c.name.split(' ')[0])+'</h2><p class="muted">Messaggio pronto, pensato per riavvicinare senza mettere pressione. Modificala come vuoi.</p><label class="f">Testo<textarea class="in" id="nd-txt">'+esc(nudgeText(c))+'</textarea></label><button class="btn primary lg block" data-act="nudgeSend" data-id="'+c.id+'">'+ic('send',18)+' Invia</button>';}
  if(s.kind==='voice')b='<h2>Detta la serie</h2><p class="muted">Qui il microfono non è disponibile: scrivi la frase come la diresti, oppure tocca un esempio. Nell\'app vera basta parlare.</p><input class="in" id="vc-in" placeholder="Es. 80 chili per 8"><div class="row wrap" style="gap:6px">'+['50 chili per 10','52 e mezzo per 8','dodici ripetizioni'].map(x=>'<button class="btn sm" data-act="voiceTry" data-v="'+x+'">“'+x+'”</button>').join('')+'</div><button class="btn primary lg block" data-act="voiceSend">'+ic('check',18)+' Segna la serie</button>';
  if(s.kind==='autoEdit'){const a=S.db.autos.find(x=>x.id===s.id);b='<h2>'+esc(a.t)+'</h2><p class="muted">'+esc(a.w)+'</p><label class="f">Testo del messaggio<textarea class="in" id="ae-txt">'+esc(a.msg)+'</textarea></label><p class="xs muted">Puoi usare {nome}, {data}, {n} e {fase}.</p><button class="btn primary lg block" data-act="autoSave" data-id="'+a.id+'">Salva</button>';}
  if(s.kind==='newCh')b='<h2>Nuova sfida</h2><label class="f">Nome<input class="in" id="nc-t" placeholder="Es. Dicembre senza scuse"></label><div class="grid2"><label class="f">Tipo<select class="in" id="nc-k"><option value="personale">Personale (classifica)</option><option value="squadra">Di squadra (obiettivo comune)</option></select></label><label class="f">Misura<select class="in" id="nc-m"><option value="n">Allenamenti</option><option value="vol">Kg sollevati</option></select></label></div><label class="f">Obiettivo<input class="in num" id="nc-g" type="number" inputmode="numeric" value="12"></label><div class="grid2"><label class="f">Inizio<input class="in" id="nc-s" type="date" value="2026-12-01"></label><label class="f">Fine<input class="in" id="nc-e" type="date" value="2026-12-31"></label></div><label class="f">Premio<input class="in" id="nc-p" value="Trofeo edizione limitata"></label><button class="btn primary lg block" data-act="chSave">Crea e annuncia</button>';
@@ -1062,7 +1065,7 @@ function render(){
   nav.classList.remove('hide');wkbar.innerHTML='';
  }else{
   if(S.ui.wk)html=cLive();
-  else if(pg)html=(({check:cCheck,ai:cAI,community:cCommunity,privacy:cPrivacy,esercizio:vEsercizio,metamorfosi:cMeta,sfide:cSfide})[pg.name]||cHome)();
+  else if(pg)html=(({check:cCheck,community:cCommunity,privacy:cPrivacy,esercizio:vEsercizio,metamorfosi:cMeta,onboard:cOnboard,sfide:cSfide})[pg.name]||cHome)();
   else html=(({home:cHome,allena:cAllena,progressi:cProgressi,percorso:cPercorso,altro:cAltro})[S.ui.ctabMain]||cHome)();
   if(S.ui.wk){nav.classList.add('hide');const w=S.ui.wk;const tot=w.items.reduce((s,i)=>s+i.sets.length,0),dn=w.items.reduce((s,i)=>s+i.sets.filter(x=>x.done).length,0);
    wkbar.innerHTML='<div class="wkbar"><button class="btn" data-act="quitWk">Esci</button><div class="grow small"><b class="num">'+dn+'/'+tot+'</b> serie<div class="bar" style="margin-top:5px"><i style="width:'+pct(dn,tot)+'%"></i></div></div><button class="btn primary" data-act="finishWk"'+(dn?'':' disabled')+'>Completa</button></div>';}
@@ -1149,7 +1152,6 @@ const A={
  leadFix(d){const l=S.db.leads.find(x=>x.id===d.id);const sl=freeSlots()[0];if(!sl)return;l.stage='fissata';l.free=sl.d+' '+sl.t;l.next='Lezione di prova';S.db.appts.push({id:uid(),date:sl.d,time:sl.t,dur:30,type:'free',status:'previsto',title:l.name,leadId:l.id});save();toast('Prova fissata '+GGS[D(sl.d).getDay()]+' '+fd(sl.d)+' alle '+sl.t);},
  leadConvert(d){const l=S.db.leads.find(x=>x.id===d.id);if(REAL){S.ui.sheet={kind:'invite',lead:l.id,name:l.name};render();return;}l.stage='cliente';l.next='Invito inviato';S.db.invites.push({name:l.name,email:l.name.toLowerCase().split(' ')[0]+'@esempio.it',date:TODAY,src:l.src,srcD:l.srcD});save();toast(l.name+' è cliente: invito inviato con provenienza '+l.src+' (simulazione)');},
  leadSave(){const n=val('ld-name');if(!n){toast('Scrivi il nome');return;}S.db.leads.push({id:uid(),name:n,src:val('ld-src'),srcD:val('ld-srcd'),contacted:TODAY,stage:'contattare',free:null,next:'Chiamare',interest:val('ld-int')});S.ui.sheet=null;save();toast('Contatto aggiunto');},
- schedAI(){document.getElementById('sc-txt').value='Ciao! Questa settimana punta su due cose: dormire bene e non saltare il riscaldamento. Ci vediamo in sala!';toast('Bozza suggerita: modificala come vuoi');},
  schedSave(){const t=val('sc-txt');if(!t){toast('Scrivi il testo');return;}S.db.scheduled.push({id:uid(),to:val('sc-to'),when:val('sc-d')+' '+val('sc-t'),trigger:null,text:t});S.ui.sheet=null;save();toast('Messaggio programmato');},
  bookType(d){S.ui.book=Object.assign({slot:null},S.ui.book||{},{type:d.v});render();},
  bookSlot(d){S.ui.book=Object.assign({type:'prova'},S.ui.book||{},{slot:+d.v});render();},
@@ -1157,10 +1159,6 @@ const A={
  bookReset(){S.ui.book=null;render();},
  reset(){if(REAL)return;try{localStorage.removeItem(KEY);}catch(e){}S.db=seed();S.ui.page=null;S.ui.tab='oggi';S.ui.wk=null;S.ui.party=null;toast('Dati di esempio ripristinati');},
  editProg(d){const c=client(d.id);const p=programOf(c);S.ui.editProg={clientId:c.id,version:p?p.version+1:1,sel:0,ai:false,sessions:p?JSON.parse(JSON.stringify(p.sessions)):[{key:'A',name:'Seduta A',items:[]}]};S.ui.page={name:'editProg',id:c.id,prev:S.ui.page};render();go();},
- aiDraft(d){const c=client(d.id);S.ui.editProg={clientId:c.id,version:1,sel:0,ai:true,sessions:[
-   {key:'A',name:'Total body A',items:[{ex:'legp',sets:3,rmin:10,rmax:12,rest:90,rir:3,alt:[]},{ex:'latm',sets:3,rmin:10,rmax:12,rest:90,rir:3,alt:[]},{ex:'chest',sets:3,rmin:10,rmax:12,rest:90,rir:3,alt:['pushup']},{ex:'legc',sets:3,rmin:10,rmax:12,rest:60,rir:3,alt:[]},{ex:'plank',sets:3,rmin:30,rmax:40,rest:45,rir:2,alt:[]}]},
-   {key:'B',name:'Total body B',items:[{ex:'step',sets:3,rmin:10,rmax:12,rest:90,rir:3,alt:[]},{ex:'pull',sets:3,rmin:10,rmax:12,rest:90,rir:3,alt:[]},{ex:'hip',sets:3,rmin:10,rmax:12,rest:90,rir:3,alt:[]},{ex:'push',sets:3,rmin:12,rmax:15,rest:60,rir:2,alt:[]}]}]};
-  S.ui.page={name:'editProg',id:c.id,prev:S.ui.page};render();go();toast('Bozza pronta: niente movimenti sopra la testa per via della spalla');},
  epSel(d){S.ui.editProg.sel=+d.v;render();},
  epAddSes(){const e=S.ui.editProg;const k=String.fromCharCode(65+e.sessions.length);e.sessions.push({key:k,name:'Seduta '+k,items:[]});e.sel=e.sessions.length-1;render();},
  epDel(d){S.ui.editProg.sessions[S.ui.editProg.sel].items.splice(+d.v,1);render();},
@@ -1190,9 +1188,6 @@ const A={
  closeParty(){S.ui.party=null;S.ui.ctabMain='home';render();go();},
  chk(d){S.ui.chk=S.ui.chk||{};S.ui.chk[d.q]=+d.v;render();},
  chkSend(){const c=me();S.db.checks.unshift({clientId:c.id,date:TODAY,v:Object.assign({},S.ui.chk),note:S.ui.chkNote||''});c.lastCheck=TODAY;S.db.inbox.push({id:uid(),kind:'feedback',clientId:c.id,date:TODAY,text:'Check della settimana: energia '+S.ui.chk.energia+'/5, stress '+S.ui.chk.stress+'/5, motivazione '+S.ui.chk.motivazione+'/5.'+(S.ui.chkNote?' “'+S.ui.chkNote+'”':''),read:false});S.ui.chk={};S.ui.chkNote='';S.ui.page=null;save();toast('Check inviato ad Aelis');},
- aiAsk(d){A._ai(d.v);},
- aiSend(){const q=val('ai-in');if(q)A._ai(q);},
- _ai(q){S.ui.chat.push({me:true,t:q});const r=aiReply(q);S.ui.chat.push({t:r.a,warn:r.warn});if(r.warn){S.db.inbox.push({id:uid(),kind:'messaggio',clientId:me().id,date:TODAY,text:'Aelis AI ha inoltrato una domanda su un dolore: “'+q+'”',read:false});save();}render();const i=document.getElementById('ai-in');if(i)i.focus();},
  commOn(){me().community=true;save();render();},
  commOff(){me().community=false;save();render();toast('Hai lasciato la community');},
  togPhotos(){const c=me();c.showPhotos=!c.showPhotos;save();render();},
@@ -1210,6 +1205,19 @@ const A={
  logout(){if(REAL)AelisCloud.logout();},
  changePw(){if(REAL)AelisCloud.changePassword();},
  whatsapp(){const n=String(CFG.coachWhatsapp||'').replace(/\D/g,'');if(REAL&&n)window.open('https://wa.me/'+n,'_blank','noopener');else toast(REAL?'Numero WhatsApp della coach non ancora impostato':'Nell\'app vera questo pulsante apre WhatsApp con la coach.');},
+ vidSave(d){const u=val('vid-url');S.db.videos=S.db.videos||{};if(!u){delete S.db.videos[d.id];save();render();toast('Video rimosso');return;}if(!/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(u)){toast('Serve un link YouTube che inizi con https://');return;}S.db.videos[d.id]=u;save();render();toast('Video salvato: lo vedono anche i clienti');},
+ exportData(){const cl=S.ui.role==='client';let d=S.db;
+  if(cl){const id=me().id,own=x=>x.clientId===id,c=Object.assign({},me());delete c.notes;delete c.limits;delete c.src;delete c.srcD;
+   d={profilo:c,percorsi:S.db.contracts.filter(own),schede:S.db.programs.filter(own),allenamenti:S.db.history.filter(own),check:S.db.checks.filter(own),misure:S.db.measures.filter(own),appuntamenti:S.db.appts.filter(own),richieste:S.db.requests.filter(own),messaggi:S.db.inbox.filter(own)};}
+  const blob=new Blob([JSON.stringify({app:'AELIS Training',esportato:new Date().toISOString(),dati:d},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(cl?'aelis-i-miei-dati-':'aelis-backup-')+TODAY+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},800);toast(cl?'Ecco i tuoi dati':'Backup scaricato: conservalo in un posto sicuro');},
+ onbPick(d){ONB.forEach(q=>{if(q[2]==='text'){const e=document.getElementById('onb-'+q[0]);if(e)S.ui.onb[q[0]]=e.value;}});S.ui.onb[d.k]=d.v;render();},
+ onbSend(){const v=S.ui.onb||{};ONB.forEach(q=>{if(q[2]==='text')v[q[0]]=val('onb-'+q[0]);});
+  if(!v.goal||!v.exp||!v.freq){toast('Rispondi almeno a obiettivo, esperienza e frequenza');return;}
+  const c=me();c.answers=ONB.filter(q=>v[q[0]]).map(q=>[q[1],v[q[0]]]);
+  c._onboard={goal:v.goal,avail:v.avail||'',limits:v.limits||'',exp:v.exp,freq:v.freq,answers:c.answers,at:TODAY};
+  S.db.inbox.push({id:uid(),kind:'messaggio',clientId:c.id,date:TODAY,text:'Ha compilato il questionario iniziale: '+v.goal,read:false});
+  S.ui.onb=null;S.ui.page=null;save();render();go();toast('Grazie! Aelis ha ricevuto le tue risposte');},
  like(d){const p=S.db.posts.find(x=>x.id===d.id);p.liked=!p.liked;p.likes+=p.liked?1:-1;save();render();},
 
  wrapOpen(){S.ui.wrap={i:0};render();},
@@ -1265,7 +1273,7 @@ document.addEventListener('change',e=>{
  if(t.dataset.alt){const it=S.ui.wk.items[+t.dataset.alt];it.ex=t.value;const l=lastSetsFor(me().id,t.value);it.sets.forEach((s,j)=>{const ls=l&&(l.sets[j]||l.sets[0]);s.kg=ls?ls.kg:'';});render();}
  if(t.id==='inv-src'||t.id==='ld-src'){const pre=t.id.split('-')[0];const sel=document.getElementById(pre+'-srcd');const g=[].slice.call(sel.querySelectorAll('optgroup')).find(o=>o.label===t.value);if(g)sel.value=g.querySelector('option').value;}
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.ui.wrap&&!S.ui.sheet){A.wrapClose();return;}if(S.ui.wrap&&!S.ui.sheet&&(e.key==='ArrowRight'||e.key==='ArrowLeft')){A[e.key==='ArrowRight'?'wrapNext':'wrapPrev']();return;}if(e.key==='Escape'&&S.ui.sheet){S.ui.sheet=null;render();}if(e.key==='Enter'&&e.target.id==='vc-in'){e.preventDefault();A.voiceSend();}if(e.key==='Enter'&&e.target.id==='ai-in'){e.preventDefault();A.aiSend();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.ui.wrap&&!S.ui.sheet){A.wrapClose();return;}if(S.ui.wrap&&!S.ui.sheet&&(e.key==='ArrowRight'||e.key==='ArrowLeft')){A[e.key==='ArrowRight'?'wrapNext':'wrapPrev']();return;}if(e.key==='Escape'&&S.ui.sheet){S.ui.sheet=null;render();}if(e.key==='Enter'&&e.target.id==='vc-in'){e.preventDefault();A.voiceSend();}});
 // tooltip
 const tip=document.getElementById('tip');
 function showTip(el,x,y){tip.textContent=el.dataset.tip;tip.classList.add('on');const r=tip.getBoundingClientRect();let L=x+12,T=y-r.height-12;if(L+r.width>innerWidth-8)L=x-r.width-12;if(L<8)L=8;if(T<8)T=y+16;tip.style.left=L+'px';tip.style.top=T+'px';}

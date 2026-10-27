@@ -15,10 +15,10 @@ Una web app con due aree:
 | Coach | Cliente |
 |---|---|
 | Agenda del giorno e registro ore | Allenamento di oggi con serie, carichi e recuperi |
-| **Le priorità di oggi**: clienti a rischio abbandono, record, feedback, rate | Dettatura vocale delle serie e cambio esercizio se la macchina è occupata |
+| **Da fare oggi**: clienti a rischio abbandono, record, feedback, rate | Dettatura vocale delle serie e cambio esercizio se la macchina è occupata |
 | Dossier cliente, schede, percorsi e lezioni | **La tua trasformazione**: Origine, Ritmo, Potenziale, Trasformazione |
 | Contatti e provenienza dei clienti (social, sala, esterni) | Riepilogo del mese in 7 storie da condividere |
-| Automazioni e sfide di gruppo | Trofei, sfide, check settimanale |
+| Inviti con link personale, video degli esercizi, backup | Questionario iniziale, trofei, sfide, check settimanale |
 
 ## Il concetto
 Il logo è la **farfalla di Lorenz**: in matematica un cambiamento minuscolo può produrre conseguenze enormi. È l'idea del brand: *piccoli cambiamenti, grandi risultati*. L'animazione di apertura calcola davvero le equazioni di Lorenz: due traiettorie che partono a un millesimo di distanza si separano e disegnano la farfalla, che diventa il logo.
@@ -41,7 +41,7 @@ Il logo è la **farfalla di Lorenz**: in matematica un cambiamento minuscolo pu�
 - **Sicurezza**: Content Security Policy rigorosa, password robuste, nessun dato in cache dopo il logout, eliminazione completa del cliente (GDPR). Dettagli in [`docs/SICUREZZA.md`](docs/SICUREZZA.md).
 - **Test automatici**: attacchi al database su Postgres e più di 50 scenari dell'app in un browser vero ([`tests/`](tests/)).
 - **Hosting GitHub Pages** (gratuito).
-- **Modalità demo**: senza chiavi del database l'app parte con dati di esempio inventati, così chiunque può provarla.
+- **Modalità demo**: aggiungendo `?demo` all'indirizzo l'app parte con dati di esempio inventati, salvati solo nel browser, così chiunque può provarla senza account: [demo pubblica](https://oanzaouiprv.github.io/aelis-training/?demo).
 
 ## Costi
 0 € per partire: GitHub Pages, Supabase Free e Brevo Free per le email di conferma e di nuova password. Dettagli e limiti in [`docs/GUIDA.md`](docs/GUIDA.md).

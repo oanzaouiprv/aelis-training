@@ -19,7 +19,7 @@ Segui i passi in ordine: ognuno si chiude con un **controllo** che dice se è an
 3. Carica i file: o colleghi GitHub a Claude e li carica lui, o usi **Add file → Upload files** e trascini tutto il contenuto della cartella.
 4. **Settings → Pages → Branch: `main`, cartella `/ (root)` → Save.**
 
-**Controllo:** dopo un paio di minuti `https://TUONOME.github.io/aelis-training/` apre l'app in modalità demo.
+**Controllo:** dopo un paio di minuti `https://TUONOME.github.io/aelis-training/` apre la schermata di accesso. Con `?demo` alla fine dell'indirizzo si apre la demo con dati inventati.
 
 ## Passo 2 · Supabase: database e accessi (gratis)
 1. Crea un account su supabase.com e **attiva la verifica in due passaggi** (Account → Security).
@@ -102,7 +102,7 @@ Questo passaggio funziona **una volta sola**: dopo, nessun altro può diventare 
 | Dominio tipo aelistraining.it | facoltativo, circa 10–15 € l'anno |
 | App negli store (Apple/Google) | non serve: l'app si installa dal browser |
 
-Le funzioni "intelligenti" (priorità di oggi, rischio abbandono, messaggi pronti) sono regole calcolate sui dati: **non usano servizi a pagamento** e non mandano dati a nessuno.
+Nell'app non c'è intelligenza artificiale: promemoria del giorno, rischio abbandono e messaggi pronti sono regole calcolate sui dati, non mandano dati a nessuno e non costano niente.
 
 ## Se qualcosa non va
 | Sintomo | Causa probabile |

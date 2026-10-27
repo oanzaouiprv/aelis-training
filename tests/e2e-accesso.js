@@ -79,6 +79,13 @@ const toastTxt=p=>p.evaluate(()=>{const t=document.querySelector('#overlay .toas
  for(const t of ['allena','progressi','percorso','altro','home']){await g.click('[data-act="ctabMain"][data-v="'+t+'"]');await g.waitForTimeout(150);}
  for(const pg of ['check','sfide','metamorfosi','community','privacy']){await g.click('[data-act="ctabMain"][data-v="altro"]');await g.waitForTimeout(100);const el=await g.$('[data-act="open"][data-v="'+pg+'"]');if(el){await el.click();await g.waitForTimeout(150);}}
  ok(g.errs.length===0,'cliente senza scheda: nessun errore ('+g.errs.join(' | ')+')');
+ // questionario iniziale
+ await g.click('[data-act="ctabMain"][data-v="home"]');await g.click('[data-act="open"][data-v="onboard"]');await g.waitForTimeout(150);
+ await g.fill('#onb-goal','Sentirmi più forte');await g.click('[data-act="onbPick"][data-k="exp"][data-v="Meno di un anno"]');await g.click('[data-act="onbPick"][data-k="freq"][data-v="3"]');
+ ok(await g.inputValue('#onb-goal')==='Sentirmi più forte','le risposte scritte restano dopo una scelta');
+ await g.fill('#onb-limits','Ginocchio sinistro delicato');await g.click('[data-act="onbSend"]');await g.waitForTimeout(1300);
+ ok(DB.client_log[0]&&DB.client_log[0].data.onboard&&DB.client_log[0].data.onboard.goal==='Sentirmi più forte','questionario salvato');
+ await shot(g,'06b-dopo-questionario');
  // riuso del link
  const g2=await page(b,'riuso');await g2.goto(link);await g2.waitForTimeout(500);ok(await authKind(g2)==='error','link già usato: non funziona più');await g2.ctx.close();
  // ---------- COACH crea la scheda ----------
@@ -87,10 +94,22 @@ const toastTxt=p=>p.evaluate(()=>{const t=document.querySelector('#overlay .toas
  ok(/Attivo/.test(await txt(c)),'coach vede l\'invito come Attivo');
  await c.click('[data-act="openClient"]');await c.waitForTimeout(200);
  await shot(c,'07-coach-dossier');
+ ok(/Sentirmi più forte/.test(await txt(c))&&/Ginocchio/.test(await txt(c)),'la coach vede obiettivo e limitazioni del questionario');
  await c.click('[data-act="ctab"][data-v="scheda"]');await c.waitForTimeout(150);
- await c.click('[data-act="aiDraft"]');await c.waitForTimeout(200);
+ await c.click('[data-act="editProg"]');await c.waitForTimeout(200);
+ for(const ex of ['hip','latm','pull']){await c.selectOption('#ep-add',ex);await c.waitForTimeout(120);}
  await c.click('[data-act="epSave"]');await c.waitForTimeout(1200);
  const sp=DB.client_space[0].data;ok(sp.programs&&sp.programs.length===1,'scheda arrivata nello spazio del cliente');
+ // video dell'esercizio
+ await c.click('[data-act="tab"][data-v="altro"]');await c.click('[data-act="open"][data-v="libreria"]');await c.waitForTimeout(150);
+ await c.locator('[data-act="open"][data-v="esercizio"]').first().click();await c.waitForTimeout(150);
+ await c.fill('#vid-url','javascript:alert(1)');await c.click('[data-act="vidSave"]');await c.waitForTimeout(200);
+ ok(/link YouTube/.test(await toastTxt(c)),'link video non YouTube rifiutato');
+ await c.fill('#vid-url','https://youtu.be/abc123');await c.click('[data-act="vidSave"]');await c.waitForTimeout(1300);
+ ok(Object.values((DB.coach_public[0]||{data:{}}).data.videos||{})[0]==='https://youtu.be/abc123','video condiviso con i clienti');
+ // backup
+ const [dl]=await Promise.all([c.waitForEvent('download'),(async()=>{await c.click('[data-act="tab"][data-v="altro"]');await c.click('[data-act="exportData"]');})()]);
+ ok(/aelis-backup-.*\.json/.test(dl.suggestedFilename()),'backup scaricabile dalla coach');
  // ---------- CLIENTE si allena ----------
  await g.reload();await g.waitForTimeout(800);
  await g.click('[data-act="ctabMain"][data-v="allena"]');await g.waitForTimeout(150);
@@ -107,6 +126,10 @@ const toastTxt=p=>p.evaluate(()=>{const t=document.querySelector('#overlay .toas
  if(!rqb){await g.click('[data-act="ctabMain"][data-v="percorso"]');await g.waitForTimeout(150);}
  await g.click('[data-act="sheet"][data-v="requestLesson"]');await g.waitForTimeout(150);await g.click('[data-act="reqSend"]');await g.waitForTimeout(1300);
  ok(DB.client_log[0].data.requests.length===1,'richiesta lezione salvata');
+const [dl2]=await Promise.all([g.waitForEvent('download'),(async()=>{await g.click('[data-act="ctabMain"][data-v="altro"]');await g.click('[data-act="exportData"]');})()]);
+ const fp=await dl2.path();const ex=JSON.parse(require('fs').readFileSync(fp,'utf8'));
+ ok(ex.dati.allenamenti.length===1&&!('notes' in ex.dati.profilo),'il cliente scarica i suoi dati (senza note della coach)');
+ ok(!/\bAI\b/.test(await txt(g)),'nessuna funzione AI nell\'app del cliente');
  // ---------- tentativi del cliente fuori dalle regole ----------
  const uidG=DB.clients_index[0].user_id,uidC=DB.profiles.find(p=>p.role==='coach').id;
  ok(handle({kind:'q',uid:uidG,t:'coach_space',op:'select',f:[]}).data.length===0,'cliente non legge lo spazio privato della coach');

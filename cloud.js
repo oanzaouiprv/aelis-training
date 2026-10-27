@@ -15,7 +15,8 @@
 (function(){
 'use strict';
 const CFG=window.AELIS_CONFIG||{};
-const REAL=!!(CFG.supabaseUrl&&CFG.supabaseAnonKey);
+// con ?demo nell'indirizzo l'app resta in modalità demo (portfolio): dati inventati, nessun accesso al database
+const REAL=!!(CFG.supabaseUrl&&CFG.supabaseAnonKey)&&!/[?&]demo\b/.test(location.search);
 // versione fissata: una versione pubblicata su npm non può più cambiare
 const LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.js';
 const PW_MIN=10;
@@ -77,7 +78,7 @@ function mount(){
  boxEl.addEventListener('submit',e=>{e.preventDefault();const f=e.target;SUB[f.dataset.form]&&SUB[f.dataset.form](f);});
 }
 function field(id,label,type,extra){return '<label class="f">'+label+'<span class="pw"><input class="in" id="'+id+'" type="'+type+'" '+(extra||'')+'>'+(type==='password'?'<button type="button" class="eye" data-auth="eye" data-for="'+id+'" aria-label="Mostra password">Mostra</button>':'')+'</span></label>';}
-function frame(title,sub,body){return '<div class="box">'+LOGO+'<p class="wm">AELIS TRAINING</p><div class="card stack"><h1>'+title+'</h1>'+(sub?'<p class="muted small">'+sub+'</p>':'')+body+'</div><p class="foot"><a href="privacy.html" target="_blank" rel="noopener">Privacy</a> · Piccoli cambiamenti, grandi risultati</p></div>';}
+function frame(title,sub,body){return '<div class="box">'+LOGO+'<p class="wm">AELIS TRAINING</p><div class="card stack"><h1>'+title+'</h1>'+(sub?'<p class="muted small">'+sub+'</p>':'')+body+'</div><p class="foot"><a href="privacy.html" target="_blank" rel="noopener">Privacy</a> · <a href="?demo">Prova la demo</a></p><p class="foot">Piccoli cambiamenti, grandi risultati</p></div>';}
 const ERR='<p class="err" id="au-err" role="alert" aria-live="assertive"></p>';
 function show(kind,o){
  o=o||{};mount();boxEl.classList.remove('hide');document.body.classList.add('locked');let h='';
@@ -256,7 +257,7 @@ function composeCoach(doc,logs){
  const db=clone(doc);const ov=db._ov||{};delete db._ov;
  ov.kudos=ov.kudos||{};ov.req=ov.req||{};ov.read=ov.read||{};ov.liked=ov.liked||{};
  ['clients','contracts','programs','history','appts','leads','inbox','checks','measures','shifts','requests','scheduled','posts','invites','challenges','autos'].forEach(k=>{if(!Array.isArray(db[k]))db[k]=[];});
- db.coachMsg=db.coachMsg||{};db.seenBadges=db.seenBadges||{};
+ db.coachMsg=db.coachMsg||{};db.seenBadges=db.seenBadges||{};db.videos=db.videos||{};
  const byId={};db.clients.forEach(c=>{byId[c.id]=c;});
  db.challenges.forEach(ch=>{ch.joined=[];ch.anon=[];ch.base=ch.base||{};});
  const likes={};
@@ -268,6 +269,7 @@ function composeCoach(doc,logs){
   (l.msgs||[]).forEach(x=>db.inbox.push(Object.assign({},x,{clientId:cid,_c:1,read:!!ov.read[x.id]})));
   const p=l.prefs||{};if('showPhotos' in p)c.showPhotos=!!p.showPhotos;if('community' in p)c.community=!!p.community;
   const lc=(l.checks||[]).map(x=>x.date).sort().pop();if(lc)c.lastCheck=lc;
+  const ob=l.onboard;if(ob&&ob.answers){c.answers=ob.answers;if(!c.goal)c.goal=ob.goal||'';if(!c.avail)c.avail=ob.avail||'';if(!c.limits)c.limits=ob.limits||'';c.ob=Object.assign({},c.ob,{q:true});}
   if(c.community)(l.posts||[]).forEach(x=>db.posts.push(Object.assign({},x,{_c:1,cid:cid,liked:!!ov.liked[x.id]})));
   (l.likes||[]).forEach(id=>{(likes[id]=likes[id]||[]).push(cid);});
   db.challenges.forEach(ch=>{if((l.joins||[]).indexOf(ch.id)>=0)ch.joined.push(cid);if((l.anon||[]).indexOf(ch.id)>=0)ch.anon.push(cid);});
@@ -290,6 +292,7 @@ function decomposeCoach(){
  const spaces={};const byId={};db.clients.forEach(c=>{byId[c.id]=c;});
  Object.keys(M.index).forEach(cid=>{const c=byId[cid];if(c)spaces[cid]=clientSpace(c);});
  const pub={
+  videos:db.videos||{},
   challenges:db.challenges.map(ch=>({id:ch.id,kind:ch.kind,title:ch.title,goal:ch.goal,target:ch.target,metric:ch.metric,start:ch.start,end:ch.end,prize:ch.prize,
    board:api.chBoard(ch).map(x=>{const an=ch.anon.indexOf(x.c.id)>=0;return {id:x.c.id,name:an?'Anonimo':String(x.c.name).split(' ')[0],ini:an?'?':x.c.ini,v:x.v,anon:an};})})),
   posts:db.posts.slice(0,80).map(p=>({id:p.id,who:p.who,ini:p.ini,when:p.when,date:p.date||null,text:p.text,stat:p.stat,by:p.by||[],cl:!!p.liked}))
@@ -337,6 +340,7 @@ function composeClient(ix,sp,l,pub){
  const c=api.clientDefaults(Object.assign({id:cid,name:ix.full_name||ix.email.split('@')[0],email:ix.email},sp.client||{}));
  c.ini=c.ini||initials(c.name);
  const p=l.prefs||{};if('showPhotos' in p)c.showPhotos=!!p.showPhotos;if('community' in p)c.community=!!p.community;
+ if(l.onboard&&l.onboard.answers){c.answers=l.onboard.answers;c._onboard=l.onboard;}
  db.clients=[c];
  db.contracts=sp.contracts||[];db.programs=sp.programs||[];db.measures=sp.measures||[];
  const msgs=(sp.msgs||[]).slice().sort((a,b)=>a.when<b.when?-1:1);const lastMsg=msgs[msgs.length-1];
@@ -352,7 +356,7 @@ function composeClient(ix,sp,l,pub){
  const likes=l.likes||[];const own=(l.posts||[]).map(x=>Object.assign({},x,{_own:1}));
  db.posts=own.concat((pub.posts||[]).filter(x=>!own.some(o=>o.id===x.id)).map(x=>Object.assign({},x,{_pub:1})));
  db.posts.forEach(x=>{x.liked=likes.indexOf(x.id)>=0;x.likes=(x.by||[]).filter(i=>i!==cid).length+(x.cl?1:0)+(x.liked?1:0);});
- db.seenBadges=l.seenBadges||{};
+ db.seenBadges=l.seenBadges||{};db.videos=pub.videos||{};
  db.challenges=(pub.challenges||[]).map(ch=>{const j=(l.joins||[]).indexOf(ch.id)>=0,an=(l.anon||[]).indexOf(ch.id)>=0;
   return Object.assign({},ch,{base:{},joined:j?[cid]:[],anon:(ch.board||[]).filter(e=>e.anon&&e.id!==cid).map(e=>e.id).concat(an?[cid]:[]),board:ch.board||[]});});
  return db;
@@ -370,7 +374,8 @@ function decomposeClient(){
   anon:db.challenges.filter(ch=>ch.anon.indexOf(cid)>=0).map(ch=>ch.id),
   posts:db.posts.filter(p=>!p._pub).map(p=>strip(p,['liked','likes','_own','by','cl','_pub'])),
   likes:db.posts.filter(p=>p.liked).map(p=>p.id),
-  seenBadges:db.seenBadges||{}
+  seenBadges:db.seenBadges||{},
+  onboard:c._onboard||null
  };
 }
 /* unione di due diari: nessun allenamento, check o messaggio va perso */
@@ -380,7 +385,7 @@ function mergeLog(a,b){
  const id=i=>i.id,ck=i=>i.id||('k'+i.date);
  const set=(x,y)=>Array.from(new Set([].concat(x||[],y||[])));
  return {history:u(a.history,b.history,id).sort(byDate),seenKudos:set(a.seenKudos,b.seenKudos),checks:u(a.checks,b.checks,ck),requests:u(a.requests,b.requests,id),
-  msgs:u(a.msgs,b.msgs,id),prefs:Object.assign({},a.prefs,b.prefs),joins:b.joins||a.joins||[],anon:b.anon||a.anon||[],posts:u(a.posts,b.posts,id),
+  msgs:u(a.msgs,b.msgs,id),prefs:Object.assign({},a.prefs,b.prefs),onboard:b.onboard||a.onboard||null,joins:b.joins||a.joins||[],anon:b.anon||a.anon||[],posts:u(a.posts,b.posts,id),
   likes:b.likes||a.likes||[],seenBadges:Object.assign({},a.seenBadges,b.seenBadges)};
 }
 

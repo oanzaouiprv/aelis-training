@@ -18,6 +18,7 @@ Il ruolo non si può cambiare dall'app: non esiste nessuna regola che lo permett
 **Database**
 - Row Level Security su tutte le tabelle, testata su Postgres con più di 10 scenari di attacco (`tests/sql-test-sicurezza.sql`).
 - Iscrizione bloccata da un trigger nel database, se manca un invito valido.
+- Le funzioni interne delle regole stanno in uno schema privato, non raggiungibile dalle API. L'unica funzione aperta a chi non ha fatto l'accesso è il controllo dell'invito, che risponde solo sì o no ed è inutile senza il codice.
 - Gli inviti sono codici casuali da 128 bit, legati all'email, che scadono in 14 giorni e si consumano al primo uso.
 - Limite di circa 1 MB per documento, contro gli abusi.
 
@@ -51,7 +52,8 @@ Il ruolo non si può cambiare dall'app: non esiste nessuna regola che lo permett
 - [ ] Informativa privacy completata e controllata.
 
 ## Da fare ogni mese (10 minuti)
-- [ ] Supabase → **Advisors → Security Advisor**: deve essere tutto verde.
+- [ ] Supabase → **Advisors → Security Advisor**: ci devono essere solo i due avvisi noti e voluti (tabella `app_settings` senza regole, controllo dell'invito aperto).
+- [ ] Scarica il backup da **Profilo → Backup di tutti i dati**.
 - [ ] Esporta un backup delle tabelle in CSV.
 - [ ] Authentication → Users: ci sono solo persone che conosci?
 - [ ] Clienti che hanno smesso: eliminali, se non servono più per obblighi fiscali.
