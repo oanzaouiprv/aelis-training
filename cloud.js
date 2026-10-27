@@ -294,7 +294,7 @@ function decomposeCoach(){
  const spaces={};const byId={};db.clients.forEach(c=>{byId[c.id]=c;});
  Object.keys(M.index).forEach(cid=>{const c=byId[cid];if(c)spaces[cid]=clientSpace(c);});
  const pub={
-  videos:db.videos||{},
+  videos:db.videos||{},customEx:db.customEx||[],exEdits:db.exEdits||{},
   challenges:db.challenges.map(ch=>({id:ch.id,kind:ch.kind,title:ch.title,goal:ch.goal,target:ch.target,metric:ch.metric,start:ch.start,end:ch.end,prize:ch.prize,
    board:api.chBoard(ch).map(x=>{const an=ch.anon.indexOf(x.c.id)>=0;return {id:x.c.id,name:an?'Anonimo':String(x.c.name).split(' ')[0],ini:an?'?':x.c.ini,v:x.v,anon:an};})})),
   posts:db.posts.slice(0,80).map(p=>({id:p.id,who:p.who,ini:p.ini,when:p.when,date:p.date||null,text:p.text,stat:p.stat,by:p.by||[],cl:!!p.liked}))
@@ -358,7 +358,7 @@ function composeClient(ix,sp,l,pub){
  const likes=l.likes||[];const own=(l.posts||[]).map(x=>Object.assign({},x,{_own:1}));
  db.posts=own.concat((pub.posts||[]).filter(x=>!own.some(o=>o.id===x.id)).map(x=>Object.assign({},x,{_pub:1})));
  db.posts.forEach(x=>{x.liked=likes.indexOf(x.id)>=0;x.likes=(x.by||[]).filter(i=>i!==cid).length+(x.cl?1:0)+(x.liked?1:0);});
- db.seenBadges=l.seenBadges||{};db.videos=pub.videos||{};
+ db.seenBadges=l.seenBadges||{};db.videos=pub.videos||{};db.customEx=pub.customEx||[];db.exEdits=pub.exEdits||{};
  db.challenges=(pub.challenges||[]).map(ch=>{const j=(l.joins||[]).indexOf(ch.id)>=0,an=(l.anon||[]).indexOf(ch.id)>=0;
   return Object.assign({},ch,{base:{},joined:j?[cid]:[],anon:(ch.board||[]).filter(e=>e.anon&&e.id!==cid).map(e=>e.id).concat(an?[cid]:[]),board:ch.board||[]});});
  return db;

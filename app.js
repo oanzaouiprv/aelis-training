@@ -102,10 +102,13 @@ const EX=[
  {id:'pushup',name:'Push up',mode:'Corpo libero',pri:['petto','tricipiti'],sec:['spalle','addome'],note:'Corpo in linea, scendi fino a sfiorare il pavimento.'},
  {id:'plank',name:'Plank',mode:'Tempo',pri:['addome'],sec:['spalle'],note:'Glutei attivi, non far cedere il bacino.'}
 ];
-const exById=id=>EX.find(e=>e.id===id);
+const MODES=[['Esterno','Con pesi o macchina'],['Corpo libero','A corpo libero'],['Assistito','Assistito (elastico o macchina)'],['Tempo','A tempo (es. plank)']];
+// esercizi della libreria: quelli di base, con le modifiche della coach, più quelli creati da lei
+function allEx(){const ed=(S.db&&S.db.exEdits)||{};return EX.map(e=>ed[e.id]?Object.assign({},e,ed[e.id],{id:e.id}):e).concat(((S.db&&S.db.customEx)||[]).filter(e=>!e.deleted));}
+const exById=id=>allEx().find(e=>e.id===id)||((S.db&&S.db.customEx)||[]).find(e=>e.id===id)||{id:id,name:'Esercizio non più in libreria',mode:'Esterno',pri:[],sec:[],note:''};
 
 /* ---------- dati di esempio ---------- */
-function emptyDb(){return {v:2,clients:[],contracts:[],programs:[],history:[],appts:[],leads:[],inbox:[],checks:[],measures:[],shifts:[],shift:null,weekly:[],requests:[],scheduled:[],coachMsg:{},posts:[],invites:[],seenBadges:{},autos:defAutos().map(a=>Object.assign(a,{log:[]})),challenges:[],videos:{}};}
+function emptyDb(){return {v:2,clients:[],contracts:[],programs:[],history:[],appts:[],leads:[],inbox:[],checks:[],measures:[],shifts:[],shift:null,weekly:[],requests:[],scheduled:[],coachMsg:{},posts:[],invites:[],seenBadges:{},autos:defAutos().map(a=>Object.assign(a,{log:[]})),challenges:[],videos:{},customEx:[],exEdits:{}};}
 function inits(n){return String(n||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?';}
 function clientDefaults(o){const c=Object.assign({age:'',email:'',goal:'',level:'Principiante',status:'attivo',since:TODAY,ob:{q:false,foto:false,scheda:false},avail:'',limits:'',notes:'',lastCheck:null,checkEvery:7,program:null,contract:null,showPhotos:true,community:false,answers:[],src:null,srcD:''},o);if(!c.ini)c.ini=inits(c.name);return c;}
 function pWhen(p){if(!p.date)return p.when||'';const d=diff(p.date,TODAY);return d<=0?'oggi':d===1?'ieri':d+' giorni fa';}
@@ -305,7 +308,7 @@ function wrapHTML(){
  return '<div class="wrp" role="dialog" aria-modal="true" aria-label="Il tuo '+m.label+'"><div class="st"><div class="bg" style="background:'+BG[i]+'"></div><div class="bars" aria-hidden="true">'+Array.from({length:WRAPN},(_,k)=>'<i class="'+(k<i?'done':k===i&&!last?'on':k===i?'done':'')+'"><b></b></i>').join('')+'</div>'+
   '<div class="top2"><span class="row" style="gap:8px"><svg width="26" height="25" viewBox="-720 -720 1440 1400" aria-hidden="true"><use href="#bfDb"></use></svg><span class="xs" style="letter-spacing:.2em;text-transform:uppercase;color:#AFC0DA">Il tuo '+m.label+'</span></span><button class="x" data-act="wrapClose" aria-label="Chiudi">'+ic('x',18)+'</button></div>'+
   (i>0?'<button class="tap l" data-act="wrapPrev" aria-label="Indietro"></button>':'')+(!last?'<button class="tap r" data-act="wrapNext" aria-label="Avanti"></button>':'')+
-  '<div class="sl" data-k="'+i+'">'+b+'</div>'+(last?'<div class="acts"><button class="btn rose lg block" data-act="toast" data-v="Nell\'app vera si apre la condivisione nelle storie di Instagram.">'+ic('share',18)+' Condividi nelle storie</button><button class="btn lg block" data-act="wrapClose">Chiudi</button></div>':'')+'</div></div>';
+  '<div class="sl" data-k="'+i+'">'+b+'</div>'+(last?'<div class="acts"><button class="btn rose lg block" data-act="shareMonth">'+ic('share',18)+' Condividi nelle storie</button><button class="btn lg block" data-act="wrapClose">Chiudi</button></div>':'')+'</div></div>';
 }
 
 /* ---------- rischio abbandono ---------- */
@@ -702,7 +705,7 @@ function vEditProg(){
  h+=s.items.map((it,j)=>{const x=exById(it.ex);return '<div class="ex"><div class="row between"><h3 class="grow">'+esc(x.name)+'</h3><button class="btn sm ghost danger" data-act="epDel" data-v="'+j+'" aria-label="Rimuovi">'+ic('x',16)+'</button></div><div class="grid2" style="grid-template-columns:repeat(4,minmax(0,1fr))">'+
   [['sets','Serie'],['rmin','Rip. min'],['rmax','Rip. max'],['rest','Rec. s']].map(f=>'<label class="f">'+f[1]+'<input class="in num" type="number" inputmode="numeric" id="ep-'+j+'-'+f[0]+'" data-ep="'+j+','+f[0]+'" value="'+it[f[0]]+'"></label>').join('')+'</div><p class="xs muted">'+esc(x.note)+'</p></div>';}).join('');
  if(!s.items.length)h+=empty('Aggiungi il primo esercizio dalla libreria.');
- h+='<label class="f">Aggiungi esercizio dalla libreria<select class="in" id="ep-add" data-bind="epAdd"><option value="">Scegli…</option>'+EX.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join('')+'</select></label>';
+ h+='<label class="f">Aggiungi esercizio dalla libreria<select class="in" id="ep-add" data-bind="epAdd"><option value="">Scegli…</option>'+allEx().map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join('')+'</select></label>';
  h+='<button class="btn primary lg block" data-act="epSave">'+ic('check',18)+' '+(e.ai?'Approva e assegna':'Salva e assegna')+'</button>';
  return h;
 }
@@ -818,14 +821,15 @@ function vLibreria(){
  const q=(S.ui.exq||'').toLowerCase();
  let h=head('Libreria esercizi','Un nome per ogni esercizio, usato in tutte le schede');
  h+='<input class="in" type="search" id="exq" placeholder="Cerca esercizio o muscolo" value="'+esc(S.ui.exq||'')+'" data-bind="exq" aria-label="Cerca esercizio">';
- const list=EX.filter(e=>!q||e.name.toLowerCase().indexOf(q)>=0||e.pri.concat(e.sec).some(m=>MUSCLES[m].toLowerCase().indexOf(q)>=0));
- h+='<div class="list">'+list.map(e=>'<button class="li" data-act="open" data-v="esercizio" data-id="'+e.id+'"><span class="av">'+ic('dumbbell',18)+'</span><span class="grow"><span class="t">'+esc(e.name)+'</span><br><span class="s">'+e.pri.map(m=>MUSCLES[m]).join(', ')+' · '+e.mode+'</span></span>'+chev()+'</button>').join('')+'</div>';
- h+='<button class="btn" data-act="toast" data-v="Nella prima versione potrai aggiungere esercizi con video e muscoli.">'+ic('plus',16)+' Nuovo esercizio</button>';
+ const list=allEx().filter(e=>!q||e.name.toLowerCase().indexOf(q)>=0||e.pri.concat(e.sec).some(m=>MUSCLES[m].toLowerCase().indexOf(q)>=0));
+ h+='<div class="list">'+list.map(e=>'<button class="li" data-act="open" data-v="esercizio" data-id="'+e.id+'"><span class="av">'+ic('dumbbell',18)+'</span><span class="grow"><span class="t">'+esc(e.name)+'</span><br><span class="s">'+(e.pri.map(m=>MUSCLES[m]).join(', ')||'Senza muscoli')+' · '+e.mode+(e.custom?' · tuo':'')+'</span></span>'+chev()+'</button>').join('')+'</div>';
+ h+='<button class="btn primary lg block" data-act="exNew">'+ic('plus',18)+' Nuovo esercizio</button>';
  return h;
 }
 function vEsercizio(){
  const e=exById(S.ui.page.id);
- let h=head(esc(e.name),e.mode);
+ let h=head(esc(e.name),e.mode+(e.custom?' · creato da te':''));
+ if(S.ui.role==='coach')h+='<button class="btn" style="align-self:flex-start" data-act="exEdit" data-id="'+e.id+'">'+ic('edit',16)+' Modifica esercizio</button>';
  h+='<div class="card">'+bodyMap(e.pri,e.sec,'Muscoli coinvolti: '+e.name)+'</div>';
  h+='<div class="card pink"><h3>Nota tecnica di Aelis</h3><p>'+esc(e.note)+'</p></div>';
  {const v0=(S.db.videos||{})[e.id];const v=/^https:\/\//.test(v0||'')?v0:null;const coach=S.ui.role==='coach';
@@ -1093,7 +1097,7 @@ function cSfide(){
 function cPrivacy(){
  const c=me();const tg=(id,on,t,s)=>'<button class="li" data-act="'+id+'"><span class="grow"><span class="t">'+t+'</span><br><span class="s">'+s+'</span></span><span class="tick" aria-pressed="'+on+'">'+ic('check',16)+'</span></button>';
  return head('Privacy e dati','Decidi tu cosa vedere e cosa condividere')+'<div class="list">'+tg('togPhotos',c.showPhotos,'Mostrami misure e confronti foto','Aelis li vede comunque per seguirti')+tg('togComm',c.community,'Partecipa alla community','Niente viene pubblicato senza il tuo ok')+'</div>'+
-  '<div class="card"><h3>I tuoi dati</h3><p class="small muted">Puoi chiedere una copia dei tuoi dati o la loro cancellazione quando vuoi.</p><div class="row wrap"><button class="btn sm" data-act="toast" data-v="Richiesta inviata ad Aelis (simulazione).">Chiedi una copia</button><button class="btn sm danger" data-act="toast" data-v="Richiesta di cancellazione registrata (simulazione).">Chiedi la cancellazione</button></div></div>';
+  '<div class="card"><h3>I tuoi dati</h3><p class="small muted">Puoi chiedere una copia dei tuoi dati o la loro cancellazione quando vuoi.</p><div class="row wrap"><button class="btn sm" data-act="exportData">Scarica una copia</button><button class="btn sm danger" data-act="askDelete">Chiedi la cancellazione</button></div></div>';
 }
 
 /* ---------- fogli ---------- */
@@ -1115,6 +1119,13 @@ function sheetHTML(){
   b='<h2>Rata '+i.n+' · '+esc(c.name)+'</h2><p class="muted num">'+esc(k.name)+'<br>Importo '+eur(i.amount)+(i.paid?' · già versati '+eur(i.paid):'')+' · scadenza '+fd(i.due)+'</p>';
   b+=rest>0?'<label class="f">Importo ricevuto<input class="in num" id="pay-amt" type="number" inputmode="decimal" value="'+rest+'"></label><label class="f">Metodo<select class="in" id="pay-met"><option>Contanti</option><option>Bonifico</option><option>POS</option><option>Satispay</option></select></label><button class="btn primary lg block" data-act="paySave">Registra pagamento</button><p class="xs muted">Un importo più basso viene salvato come acconto.</p>':'<span class="chip good" style="align-self:flex-start">Pagata il '+fd(i.paidOn)+'</span>';
  }
+ if(s.kind==='exForm'){const f=S.ui.exf;const chips=(k)=>'<div class="chipset" role="group">'+Object.keys(MUSCLES).map(m=>'<button type="button" aria-pressed="'+(f[k].indexOf(m)>=0)+'" data-act="exMus" data-k="'+k+'" data-v="'+m+'">'+MUSCLES[m]+'</button>').join('')+'</div>';
+  b='<h2>'+(f.id?'Modifica esercizio':'Nuovo esercizio')+'</h2><label class="f">Nome<input class="in" id="exf-name" maxlength="60" value="'+esc(f.name)+'" placeholder="Es. Squat al multipower"></label>'+
+   '<label class="f">Tipo<select class="in" id="exf-mode">'+MODES.map(m=>'<option value="'+m[0]+'"'+(f.mode===m[0]?' selected':'')+'>'+m[1]+'</option>').join('')+'</select></label>'+
+   '<div class="f"><span>Muscoli principali</span>'+chips('pri')+'</div><div class="f"><span>Muscoli secondari (facoltativo)</span>'+chips('sec')+'</div>'+
+   '<label class="f">Nota tecnica per i clienti<textarea class="in" id="exf-note" maxlength="400" placeholder="Come eseguirlo bene, in due righe">'+esc(f.note)+'</textarea></label>'+
+   '<label class="f">Video YouTube (facoltativo)<input class="in" id="exf-vid" inputmode="url" placeholder="https://youtu.be/…" value="'+esc(f.vid||'')+'"></label>'+
+   '<button class="btn primary lg block" data-act="exSave">Salva esercizio</button>'+(f.id&&f.custom?'<button class="btn danger block" data-act="exDel">Elimina dalla libreria</button>':'')+(f.id&&!f.custom?'<p class="xs muted">È un esercizio di base: le tue modifiche valgono per tutte le schede.</p>':'');}
  if(s.kind==='inviteLink'){const fn=String(s.name||'').split(' ')[0];const msg='Ciao '+fn+'! Ecco il tuo accesso personale ad AELIS Training: '+s.link+' (vale 14 giorni). A presto, Aelis';
   b='<h2>Invito pronto</h2><p class="muted">Manda questo link a '+esc(s.name)+'. È personale, vale 14 giorni e si usa una volta sola: crea il suo account con la sua email.</p><input class="in linkbox" id="il-url" readonly value="'+esc(s.link)+'" aria-label="Link d\'invito"><button class="btn primary lg block" data-act="copyLink">Copia il link</button><div class="grid2"><a class="btn" href="https://wa.me/?text='+encodeURIComponent(msg)+'" target="_blank" rel="noopener">WhatsApp</a><a class="btn" href="mailto:'+encodeURIComponent(s.email||'')+'?subject='+encodeURIComponent('Il tuo accesso ad AELIS Training')+'&body='+encodeURIComponent(msg)+'">Email</a></div><p class="xs muted">Non condividere il link nei gruppi: chi lo apre per primo può usarlo.</p>';}
  if(s.kind==='delClient'){const c=client(s.id);b='<h2>Eliminare '+esc(c?c.name:'')+'?</h2><p class="muted">Si cancellano per sempre scheda, allenamenti, check, misure, pagamenti e l\'accesso all\'app. Non si può annullare.</p><label class="f">Per confermare scrivi il nome: <b>'+esc(c?c.name:'')+'</b><input class="in" id="dl-name" autocomplete="off"></label><button class="btn danger lg block" data-act="delClient">Elimina definitivamente</button>';}
@@ -1324,6 +1335,28 @@ const A={
  calLink(){AelisCloud.calendarLink(false).then(l=>{S.ui.calLink=l;render();}).catch(e=>toast(e.message));},
  calReset(){AelisCloud.calendarLink(true).then(l=>{S.ui.calLink=l;render();toast('Nuovo indirizzo: aggiornalo in Google Calendar');}).catch(e=>toast(e.message));},
  calCopy(){const l=S.ui.calLink;if(!l)return;try{navigator.clipboard.writeText(l).then(()=>toast('Indirizzo copiato'),()=>toast('Tieni premuto sull\'indirizzo per copiarlo'));}catch(e){toast('Tieni premuto sull\'indirizzo per copiarlo');}},
+ exNew(){S.ui.exf={id:null,custom:true,name:'',mode:'Esterno',pri:[],sec:[],note:'',vid:''};S.ui.sheet={kind:'exForm'};render();},
+ exEdit(d){const e=exById(d.id);S.ui.exf={id:e.id,custom:!!e.custom,name:e.name,mode:e.mode,pri:e.pri.slice(),sec:e.sec.slice(),note:e.note||'',vid:(S.db.videos||{})[e.id]||''};S.ui.sheet={kind:'exForm'};render();},
+ exMus(d){const f=S.ui.exf;['name','note','vid'].forEach(k=>{const el=document.getElementById('exf-'+k);if(el)f[k]=el.value;});const m=document.getElementById('exf-mode');if(m)f.mode=m.value;
+  const a=f[d.k],o=f[d.k==='pri'?'sec':'pri'];const i=a.indexOf(d.v);if(i>=0)a.splice(i,1);else{a.push(d.v);const j=o.indexOf(d.v);if(j>=0)o.splice(j,1);}render();},
+ exSave(){const f=S.ui.exf;const name=val('exf-name'),note=val('exf-note'),vid=val('exf-vid'),mode=val('exf-mode');
+  if(name.length<2){toast('Scrivi il nome dell\'esercizio');return;}if(!f.pri.length){toast('Scegli almeno un muscolo principale');return;}
+  if(vid&&!/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(vid)){toast('Il video deve essere un link YouTube che inizia con https://');return;}
+  if(allEx().some(e=>e.id!==f.id&&e.name.toLowerCase()===name.toLowerCase())){toast('Esiste già un esercizio con questo nome');return;}
+  const data={name:name,mode:mode||'Esterno',pri:f.pri.slice(),sec:f.sec.slice(),note:note};
+  let id=f.id;
+  if(!id){id='x'+uid();S.db.customEx=S.db.customEx||[];S.db.customEx.push(Object.assign({id:id,custom:true},data));}
+  else if(f.custom){const e=S.db.customEx.find(x=>x.id===id);Object.assign(e,data);}
+  else{S.db.exEdits=S.db.exEdits||{};S.db.exEdits[id]=data;}
+  S.db.videos=S.db.videos||{};if(vid)S.db.videos[id]=vid;else delete S.db.videos[id];
+  S.ui.sheet=null;S.ui.exf=null;save();render();toast(f.id?'Esercizio aggiornato':'Esercizio aggiunto alla libreria');},
+ exDel(){const f=S.ui.exf;const used=S.db.programs.some(p=>p.sessions.some(se=>se.items.some(it=>it.ex===f.id)));
+  if(used){toast('È in una scheda: toglilo prima dalla scheda');return;}
+  const e=S.db.customEx.find(x=>x.id===f.id);if(e)e.deleted=true;S.ui.sheet=null;S.ui.exf=null;S.ui.page=S.ui.page&&S.ui.page.prev||null;save();render();toast('Esercizio eliminato');},
+ shareMonth(){const c=me();const n=c?histOf(c.id).filter(x=>x.date.slice(0,7)===TODAY.slice(0,7)).length:0;const t='Questo mese '+n+' allenamenti con AELIS Training. Piccoli cambiamenti, grandi risultati.';
+  if(navigator.share)navigator.share({title:'AELIS Training',text:t}).catch(()=>{});else{try{navigator.clipboard.writeText(t).then(()=>toast('Testo copiato: incollalo nella tua storia'));}catch(e){toast(t);}}},
+ askDelete(){const c=me();if(!c)return;const t='Ciao Aelis, vorrei che i miei dati venissero cancellati dall\'app.';
+  if(REAL){AelisCloud.chatSend(c.id,t).then(()=>toast('Richiesta inviata ad Aelis in chat')).catch(e=>toast(e.message));}else{chatAll().push({id:uid(),client_id:c.id,coach_id:'demo',sender:'client',body:t,created_at:demoNow(),read_at:null});save();toast('Richiesta inviata ad Aelis in chat');}},
  like(d){const p=S.db.posts.find(x=>x.id===d.id);p.liked=!p.liked;p.likes+=p.liked?1:-1;save();render();},
 
  wrapOpen(){S.ui.wrap={i:0};render();},
