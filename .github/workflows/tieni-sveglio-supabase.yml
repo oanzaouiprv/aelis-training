@@ -16,7 +16,7 @@ jobs:
       - name: Richiesta al database
         run: |
           URL=$(grep -o "https://[a-z0-9]*\.supabase\.co" config.js | head -1)
-          KEY=$(grep -o "sb_publishable_[A-Za-z0-9_-]*" config.js | head -1)
+          KEY=$(grep "supabaseAnonKey:" config.js | grep -o "sb_publishable_[A-Za-z0-9_-]*" | head -1)
           if [ -z "$URL" ] || [ -z "$KEY" ]; then echo "Config vuota: niente da fare"; exit 0; fi
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/rest/v1/rpc/check_invite" \
             -H "apikey: $KEY" -H "Content-Type: application/json" \
