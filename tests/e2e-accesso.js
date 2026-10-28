@@ -99,7 +99,7 @@ ok(/non è quella della coach/.test(await c.textContent('#au-err')),'email diver
  ok(/Sentirmi più forte/.test(await txt(c))&&/Ginocchio/.test(await txt(c)),'la coach vede obiettivo e limitazioni del questionario');
  await c.click('[data-act="ctab"][data-v="scheda"]');await c.waitForTimeout(150);
  await c.click('[data-act="editProg"]');await c.waitForTimeout(200);
- for(const ex of ['hip','latm','pull']){await c.selectOption('#ep-add',ex);await c.waitForTimeout(120);}
+ for(const ex of ['AE0002','AE0103','AE0113']){await c.selectOption('#ep-add',ex);await c.waitForTimeout(120);}
  await c.click('[data-act="epSave"]');await c.waitForTimeout(1200);
  const sp=DB.client_space[0].data;ok(sp.programs&&sp.programs.length===1,'scheda arrivata nello spazio del cliente');
  // video dell'esercizio

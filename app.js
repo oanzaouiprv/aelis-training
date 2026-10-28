@@ -83,36 +83,51 @@ const srcChip=s=>s?'<span class="chip"><span class="sw" style="background:var('+
 
 /* ---------- esercizi ---------- */
 const MUSCLES={petto:'Petto',spalle:'Spalle',bicipiti:'Bicipiti',tricipiti:'Tricipiti',dorsali:'Dorsali',addome:'Addome',lombari:'Lombari',glutei:'Glutei',quadricipiti:'Quadricipiti',femorali:'Femorali',polpacci:'Polpacci',trapezi:'Trapezi'};
-const EX=[
- {id:'hip',name:'Hip thrust al macchinario',mode:'Esterno',pri:['glutei'],sec:['femorali'],note:'Solleva il bacino senza perdere la curva lombare. Mento verso il petto, un secondo di pausa in alto.'},
- {id:'bulg',name:'Affondo bulgaro su panca',mode:'Esterno',pri:['glutei','quadricipiti'],sec:['femorali'],note:'Per spostare il lavoro sul gluteo, in discesa porta il busto leggermente avanti.'},
- {id:'latm',name:'Lat machine presa larga',mode:'Esterno',pri:['dorsali'],sec:['bicipiti'],note:'Petto alto, porta la barra verso lo sterno e controlla la risalita.'},
- {id:'pull',name:'Pulley basso',mode:'Esterno',pri:['dorsali'],sec:['bicipiti','lombari','trapezi'],note:'Schiena neutra, tira con i gomiti vicino al corpo.'},
- {id:'curl',name:'Curl manubri su panca 45°',mode:'Esterno',pri:['bicipiti'],sec:[],note:'Extraruota i polsi anche arrivando in alto.'},
- {id:'legp',name:'Leg press orizzontale',mode:'Esterno',pri:['quadricipiti'],sec:['glutei'],note:'Scegli il carico prima di iniziare. Non bloccare le ginocchia in spinta.'},
- {id:'legx',name:'Leg extension',mode:'Esterno',pri:['quadricipiti'],sec:[],note:'Due serie pesanti e una di ripetizioni, controlla la discesa.'},
- {id:'lento',name:'Lento avanti manubri',mode:'Esterno',pri:['spalle'],sec:['tricipiti'],note:'Gomiti mai troppo larghi, addome attivo.'},
- {id:'chest',name:'Chest press',mode:'Esterno',pri:['petto'],sec:['tricipiti','spalle'],note:'Scapole addotte, spingi senza staccare la schiena.'},
- {id:'push',name:'Pushdown alla corda',mode:'Esterno',pri:['tricipiti'],sec:[],note:'Gomiti fermi ai fianchi, apri la corda in basso.'},
- {id:'traz',name:'Trazioni assistite con elastico',mode:'Assistito',pri:['dorsali'],sec:['bicipiti'],note:'Tutte le ripetizioni che riesci con buona tecnica. Segna i kg di assistenza.'},
- {id:'legc',name:'Leg curl',mode:'Esterno',pri:['femorali'],sec:['polpacci'],note:'Bacino ben appoggiato, risalita lenta.'},
- {id:'step',name:'Step up su panca',mode:'Esterno',pri:['quadricipiti','glutei'],sec:[],note:'Spingi con la gamba in alto, non con quella a terra.'},
- {id:'hyper',name:'Hyperextension',mode:'Corpo libero',pri:['lombari','glutei'],sec:['femorali'],note:'Movimento controllato, non andare oltre la linea del corpo.'},
- {id:'alz',name:'Alzate laterali',mode:'Esterno',pri:['spalle'],sec:['trapezi'],note:'Prima serie con il carico massimo per 6 ripetizioni, poi scala.'},
- {id:'pushup',name:'Push up',mode:'Corpo libero',pri:['petto','tricipiti'],sec:['spalle','addome'],note:'Corpo in linea, scendi fino a sfiorare il pavimento.'},
- {id:'plank',name:'Plank',mode:'Tempo',pri:['addome'],sec:['spalle'],note:'Glutei attivi, non far cedere il bacino.'}
-];
-const MODES=[['Esterno','Con pesi o macchina'],['Corpo libero','A corpo libero'],['Assistito','Assistito (elastico o macchina)'],['Tempo','A tempo (es. plank)']];
-// esercizi della libreria: quelli di base, con le modifiche della coach, più quelli creati da lei
-function allEx(){const ed=(S.db&&S.db.exEdits)||{};return EX.map(e=>ed[e.id]?Object.assign({},e,ed[e.id],{id:e.id}):e).concat(((S.db&&S.db.customEx)||[]).filter(e=>!e.deleted));}
-const exById=id=>allEx().find(e=>e.id===id)||((S.db&&S.db.customEx)||[]).find(e=>e.id===id)||{id:id,name:'Esercizio non più in libreria',mode:'Esterno',pri:[],sec:[],note:''};
+/* ---------- libreria esercizi (exercises.js, dal foglio di Aelis) ---------- */
+const LIB=window.AELIS_EXLIB||{S:[],D:[],M:[],E:[],T:[],L:[],N:[],X:[]};
+const SEZ=LIB.S;
+const DMAP={'Glutei':['glutei'],'Quadricipiti':['quadricipiti'],'Ischiocrurali':['femorali'],'Femorali':['femorali'],'Polpacci':['polpacci'],'Dorso':['dorsali'],'Petto':['petto'],'Spalle':['spalle'],'Bicipiti':['bicipiti'],'Tricipiti':['tricipiti'],'Core':['addome'],'Lombari':['lombari'],'Adduttori':[],'Avambracci':[],'Total body':[],'Funzionale / HYROX':[],'Mobilità / Attivazione':[]};
+const SECRX=[[/glute/i,'glutei'],[/quadric/i,'quadricipiti'],[/ischiocr|femoral/i,'femorali'],[/polpacc|soleo|gastrocn/i,'polpacci'],[/dorsal|romboid|grande rotondo/i,'dorsali'],[/pettoral/i,'petto'],[/deltoid|spall|cuffia/i,'spalle'],[/bicipit/i,'bicipiti'],[/tricipit/i,'tricipiti'],[/core|obliqu|retto addominale|trasverso/i,'addome'],[/erettori|lombar/i,'lombari'],[/trapezi/i,'trapezi']];
+function secKeys(txt,pri){const out=[];SECRX.forEach(x=>{if(x[0].test(txt||'')&&out.indexOf(x[1])<0&&pri.indexOf(x[1])<0)out.push(x[1]);});return out;}
+function modeOf(sez,eq,tip){
+ if(tip==='Isometrico'||sez==='Isometrie corpo libero')return 'Tempo';
+ if(sez==='Corpo libero / assistiti')return 'Assistito';
+ if(/SkiErg|RowErg|Bike|Tapis/i.test(eq))return 'Tempo';
+ if(/^Corpo libero/i.test(eq)&&!/sovraccarico/i.test(eq))return 'Corpo libero';
+ return sez==='Corpo libero'?'Corpo libero':'Esterno';
+}
+function mkEx(o){const pri=(DMAP[o.dist]||[]).slice();return Object.assign(o,{pri:o.pri||pri,sec:o.sec||secKeys(o.secTxt,pri),mode:modeOf(o.sez,o.eq||'',o.tip||'')});}
+const EX=LIB.X.map(r=>mkEx({id:r[0],name:r[1],sez:LIB.S[r[2]],dist:LIB.D[r[3]],secTxt:LIB.M[r[4]],eq:LIB.E[r[5]],tip:LIB.T[r[6]],lat:LIB.L[r[7]],note:LIB.N[r[8]]||''}));
+const EXD=[...new Set(EX.map(e=>e.dist))];const EXT=[...new Set(EX.map(e=>e.tip))];const EXE=[...new Set(EX.map(e=>e.eq))];
+// vecchi esercizi della prima versione → equivalente nella nuova libreria
+const LEGACY={hip:'AE0002',bulg:'AE0021',latm:'AE0103',pull:'AE0113',curl:'AE0209',legp:'AE0042',legx:'AE0044',lento:'AE0179',chest:'AE0149',push:'AE0229',traz:'AE0112',legc:'AE0061',step:'AE0019',hyper:'AE0028',alz:'AE0180',pushup:'AE0161',plank:'AE0260'};
+// esercizi della libreria: quelli di base (meno quelli eliminati, con le modifiche della coach) più quelli creati da lei
+function allEx(){const db=S&&S.db||{};const ed=db.exEdits||{},hid=db.exHidden||[];
+ return EX.filter(e=>hid.indexOf(e.id)<0).map(e=>ed[e.id]?mkEx(Object.assign({},e,ed[e.id],{id:e.id,pri:null,sec:null})):e).concat((db.customEx||[]).filter(e=>!e.deleted).map(e=>e.sez?mkEx(Object.assign({},e,{pri:null,sec:null})):e));}
+let _exc=null,_exk='';
+function exById(id){
+ if(LEGACY[id]&&!((S.db.customEx||[]).some(e=>e.id===id)))id=LEGACY[id];
+ const k=JSON.stringify([(S.db.exEdits||{}),(S.db.exHidden||[]).length,(S.db.customEx||[]).length,(S.db.customEx||[]).filter(e=>e.deleted).length]);
+ if(!_exc||k!==_exk){_exc={};allEx().forEach(e=>{_exc[e.id]=e;});_exk=k;}
+ if(_exc[id])return _exc[id];
+ const base=EX.find(e=>e.id===id)||(S.db.customEx||[]).find(e=>e.id===id);
+ return base||{id:id,name:'Esercizio non più in libreria',mode:'Esterno',pri:[],sec:[],note:'',dist:'',sez:''};
+}
 
 /* ---------- dati di esempio ---------- */
-function emptyDb(){return {v:2,clients:[],contracts:[],programs:[],history:[],appts:[],leads:[],inbox:[],checks:[],measures:[],shifts:[],shift:null,weekly:[],requests:[],scheduled:[],coachMsg:{},posts:[],invites:[],seenBadges:{},autos:defAutos().map(a=>Object.assign(a,{log:[]})),challenges:[],videos:{},customEx:[],exEdits:{}};}
+/* aggiornamento alla nuova libreria: i vecchi esercizi creati a mano vengono tolti (recuperabili) */
+function migrateLib(){const db=S.db;if((db.libV||0)>=2)return false;
+ (db.customEx||[]).forEach(e=>{const used=db.programs.some(p=>p.sessions.some(se=>se.items.some(it=>it.ex===e.id)));if(!used)e.deleted=true;});
+ db.programs.forEach(p=>p.sessions.forEach(se=>se.items.forEach(it=>{if(LEGACY[it.ex])it.ex=LEGACY[it.ex];it.alt=(it.alt||[]).map(k=>LEGACY[k]||k);})));
+ db.exHidden=db.exHidden||[];db.libV=2;return true;}
+function emptyDb(){return {v:2,clients:[],contracts:[],programs:[],history:[],appts:[],leads:[],inbox:[],checks:[],measures:[],shifts:[],shift:null,weekly:[],requests:[],scheduled:[],coachMsg:{},posts:[],invites:[],seenBadges:{},autos:defAutos().map(a=>Object.assign(a,{log:[]})),challenges:[],videos:{},customEx:[],exEdits:{},exHidden:[],libV:2};}
 function inits(n){return String(n||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?';}
 function clientDefaults(o){const c=Object.assign({age:'',email:'',goal:'',level:'Principiante',status:'attivo',since:TODAY,ob:{q:false,foto:false,scheda:false},avail:'',limits:'',notes:'',lastCheck:null,checkEvery:7,program:null,contract:null,showPhotos:true,community:false,answers:[],src:null,srcD:''},o);if(!c.ini)c.ini=inits(c.name);return c;}
 function pWhen(p){if(!p.date)return p.when||'';const d=diff(p.date,TODAY);return d<=0?'oggi':d===1?'ieri':d+' giorni fa';}
-function seed(){
+function seed(){const db=seed0();const L=LEGACY;const m=k=>L[k]||k;
+ db.programs.forEach(p=>p.sessions.forEach(se=>se.items.forEach(it=>{it.ex=m(it.ex);it.alt=(it.alt||[]).map(m);})));
+ db.history.forEach(h=>{const o={};Object.keys(h.sets).forEach(k=>{o[m(k)]=h.sets[k];});h.sets=o;});db.libV=2;db.exHidden=[];return db;}
+function seed0(){
  const program={id:'p1',clientId:'c1',version:2,assigned:'2026-10-12',sessions:[
   {key:'A',name:'Gambe e glutei',items:[{ex:'hip',sets:4,rmin:8,rmax:10,rest:120,rir:2,alt:[]},{ex:'bulg',sets:3,rmin:8,rmax:10,rest:120,rir:2,alt:['step','legp']},{ex:'latm',sets:3,rmin:8,rmax:10,rest:90,rir:2,alt:['traz']},{ex:'pull',sets:3,rmin:10,rmax:12,rest:90,rir:2,alt:[]},{ex:'curl',sets:3,rmin:10,rmax:12,rest:60,rir:1,alt:[]}]},
   {key:'B',name:'Spinta e quadricipiti',items:[{ex:'legp',sets:3,rmin:10,rmax:12,rest:120,rir:2,alt:[]},{ex:'legx',sets:3,rmin:10,rmax:12,rest:90,rir:1,alt:[]},{ex:'lento',sets:3,rmin:8,rmax:10,rest:90,rir:2,alt:[]},{ex:'chest',sets:3,rmin:10,rmax:12,rest:90,rir:2,alt:['pushup']},{ex:'push',sets:3,rmin:10,rmax:12,rest:60,rir:1,alt:[]}]},
@@ -225,7 +240,7 @@ function seed(){
 function load(){try{const t=localStorage.getItem(KEY);if(!t)return null;const d=JSON.parse(t);return d&&d.v===2?d:null;}catch(e){return null;}}
 function save(){if(REAL){if(window.AelisCloud)AelisCloud.changed();return;}try{localStorage.setItem(KEY,JSON.stringify(S.db));}catch(e){}}
 
-const S={db:REAL?emptyDb():(load()||seed()),ui:{role:'coach',tab:'oggi',page:null,ctab:'profilo',day:TODAY,sheet:null,asClient:'c1',search:'',cfilter:'tutti',csrc:null,lsrc:'tutti',wk:null,party:null,chat:[],chartEx:'hip',cprog:'hip',ptab:'stat',ntab:'panoramica',aperiod:'tutto',asrc:null,editProg:null,ctabMain:'home'}};
+const S={db:REAL?emptyDb():(load()||seed()),ui:{role:'coach',tab:'oggi',page:null,ctab:'profilo',day:TODAY,sheet:null,asClient:'c1',search:'',cfilter:'tutti',csrc:null,lsrc:'tutti',wk:null,party:null,chat:[],chartEx:'AE0002',cprog:'AE0002',ptab:'stat',ntab:'panoramica',aperiod:'tutto',asrc:null,editProg:null,ctabMain:'home'}};
 if(!S.db.seenBadges)S.db.seenBadges={};
 if(!S.db.autos)S.db.autos=defAutos();
 if(!S.db.challenges)S.db.challenges=defChallenges();
@@ -706,7 +721,7 @@ function vEditProg(){
  h+=s.items.map((it,j)=>{const x=exById(it.ex);return '<div class="ex"><div class="row between"><h3 class="grow">'+esc(x.name)+'</h3><button class="btn sm ghost danger" data-act="epDel" data-v="'+j+'" aria-label="Rimuovi">'+ic('x',16)+'</button></div><div class="grid2" style="grid-template-columns:repeat(4,minmax(0,1fr))">'+
   [['sets','Serie'],['rmin','Rip. min'],['rmax','Rip. max'],['rest','Rec. s']].map(f=>'<label class="f">'+f[1]+'<input class="in num" type="number" inputmode="numeric" id="ep-'+j+'-'+f[0]+'" data-ep="'+j+','+f[0]+'" value="'+it[f[0]]+'"></label>').join('')+'</div><p class="xs muted">'+esc(x.note)+'</p></div>';}).join('');
  if(!s.items.length)h+=empty('Aggiungi il primo esercizio dalla libreria.');
- h+='<label class="f">Aggiungi esercizio dalla libreria<select class="in" id="ep-add" data-bind="epAdd"><option value="">Scegli…</option>'+allEx().map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join('')+'</select></label>';
+ h+='<label class="f">Aggiungi esercizio dalla libreria<select class="in" id="ep-add" data-bind="epAdd"><option value="">Scegli…</option>'+(()=>{const a=allEx();const g=SEZ.concat(['I tuoi']);return g.map(sz=>{const it=a.filter(e=>(SEZ.indexOf(e.sez)>=0?e.sez:'I tuoi')===sz);return it.length?'<optgroup label="'+esc(sz)+'">'+it.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join('')+'</optgroup>':'';}).join('');})()+'</select></label>';
  h+='<button class="btn primary lg block" data-act="epSave">'+ic('check',18)+' '+(e.ai?'Approva e assegna':'Salva e assegna')+'</button>';
  return h;
 }
@@ -819,23 +834,35 @@ function vContatti(){
  return h;
 }
 function vLibreria(){
- const q=(S.ui.exq||'').toLowerCase();
- let h=head('Libreria esercizi','Un nome per ogni esercizio, usato in tutte le schede');
- h+='<input class="in" type="search" id="exq" placeholder="Cerca esercizio o muscolo" value="'+esc(S.ui.exq||'')+'" data-bind="exq" aria-label="Cerca esercizio">';
- const list=allEx().filter(e=>!q||e.name.toLowerCase().indexOf(q)>=0||e.pri.concat(e.sec).some(m=>MUSCLES[m].toLowerCase().indexOf(q)>=0));
- h+='<div class="list">'+list.map(e=>'<button class="li" data-act="open" data-v="esercizio" data-id="'+e.id+'"><span class="av">'+ic('dumbbell',18)+'</span><span class="grow"><span class="t">'+esc(e.name)+'</span><br><span class="s">'+(e.pri.map(m=>MUSCLES[m]).join(', ')||'Senza muscoli')+' · '+e.mode+(e.custom?' · tuo':'')+'</span></span>'+chev()+'</button>').join('')+'</div>';
+ const q=(S.ui.exq||'').toLowerCase().trim(),sz=S.ui.exsez||'',ds=S.ui.exdist||'';
+ const all=allEx();
+ let h=head('Libreria esercizi',all.length+' esercizi, divisi per sezione');
+ h+='<input class="in" type="search" id="exq" placeholder="Cerca per nome, muscolo o attrezzo" value="'+esc(S.ui.exq||'')+'" data-bind="exq" aria-label="Cerca esercizio">';
+ const secs=SEZ.concat(all.some(e=>e.custom&&SEZ.indexOf(e.sez)<0)?['I tuoi']:[]);
+ const sezOf=e=>SEZ.indexOf(e.sez)>=0?e.sez:'I tuoi';
+ h+='<div class="tabs" role="group" aria-label="Sezione"><button aria-pressed="'+(!sz)+'" data-act="exSez" data-v="">Tutte</button>'+secs.map(x=>'<button aria-pressed="'+(sz===x)+'" data-act="exSez" data-v="'+esc(x)+'">'+esc(x)+' <span class="xs muted">'+all.filter(e=>sezOf(e)===x).length+'</span></button>').join('')+'</div>';
+ const dists=[...new Set(all.filter(e=>!sz||sezOf(e)===sz).map(e=>e.dist||'').filter(Boolean))];
+ h+='<label class="f">Distretto<select class="in" data-bind="exdist" id="exdist"><option value="">Tutti i distretti</option>'+dists.map(d=>'<option'+(ds===d?' selected':'')+'>'+esc(d)+'</option>').join('')+'</select></label>';
+ const match=e=>(!sz||sezOf(e)===sz)&&(!ds||e.dist===ds)&&(!q||[e.name,e.dist,e.secTxt,e.eq,e.tip].concat(e.pri.map(m=>MUSCLES[m])).join(' ').toLowerCase().indexOf(q)>=0);
+ const list=all.filter(match);
  h+='<button class="btn primary lg block" data-act="exNew">'+ic('plus',18)+' Nuovo esercizio</button>';
+ if(!list.length)return h+empty('Nessun esercizio trovato.');
+ const row=e=>'<button class="li" data-act="open" data-v="esercizio" data-id="'+e.id+'"><span class="av">'+ic('dumbbell',18)+'</span><span class="grow"><span class="t">'+esc(e.name)+'</span><br><span class="s">'+esc([e.dist||(e.pri.map(m=>MUSCLES[m]).join(', ')),e.eq].filter(Boolean).join(' · '))+(e.custom?' · tuo':'')+'</span></span>'+chev()+'</button>';
+ const groups=sz?[sz]:secs;
+ groups.forEach(g=>{const it=list.filter(e=>sezOf(e)===g);if(!it.length)return;h+='<section class="stack">'+sec(esc(g),'<span class="chip">'+it.length+'</span>')+'<div class="list">'+it.map(row).join('')+'</div></section>';});
  return h;
 }
+
 function vEsercizio(){
  const e=exById(S.ui.page.id);
- let h=head(esc(e.name),e.mode+(e.custom?' · creato da te':''));
+ let h=head(esc(e.name),esc([e.sez,e.custom?'creato da te':''].filter(Boolean).join(' · ')||e.mode));
  if(S.ui.role==='coach')h+='<button class="btn" style="align-self:flex-start" data-act="exEdit" data-id="'+e.id+'">'+ic('edit',16)+' Modifica esercizio</button>';
  h+='<div class="card">'+bodyMap(e.pri,e.sec,'Muscoli coinvolti: '+e.name)+'</div>';
- h+='<div class="card pink"><h3>Nota tecnica di Aelis</h3><p>'+esc(e.note)+'</p></div>';
+ if(e.note)h+='<div class="card pink"><h3>Nota tecnica</h3><p>'+esc(e.note)+'</p></div>';
  {const v0=(S.db.videos||{})[e.id];const v=/^https:\/\//.test(v0||'')?v0:null;const coach=S.ui.role==='coach';
   h+='<div class="card"><div class="row"><span class="av">'+ic('video',18)+'</span><div class="grow"><h3>Video dimostrativo</h3><p class="small muted">'+(v?'Registrato da Aelis':coach?'Incolla il link di un video YouTube “non in elenco”: costo zero.':'Aelis non ha ancora caricato il video di questo esercizio.')+'</p></div></div>'+(v?'<a class="btn primary block" href="'+esc(v)+'" target="_blank" rel="noopener">'+ic('play',18)+' Guarda il video</a>':'')+(coach?'<div class="row" style="gap:8px"><input class="in" id="vid-url" inputmode="url" placeholder="https://youtu.be/…" value="'+esc(v||'')+'" aria-label="Link del video"><button class="btn" data-act="vidSave" data-id="'+e.id+'">Salva</button></div>':'')+'</div>';}
- h+='<div class="card"><h3>Muscoli</h3><p><b>Principali:</b> '+e.pri.map(m=>MUSCLES[m]).join(', ')+'</p>'+(e.sec.length?'<p><b>Secondari:</b> '+e.sec.map(m=>MUSCLES[m]).join(', ')+'</p>':'')+'</div>';
+ {const rows=[['Sezione',e.sez],['Distretto principale',e.dist||e.pri.map(m=>MUSCLES[m]).join(', ')],['Muscoli secondari',e.secTxt||e.sec.map(m=>MUSCLES[m]).join(', ')],['Attrezzatura',e.eq],['Tipologia',e.tip],['Lateralità',e.lat]].filter(x=>x[1]);
+  h+='<div class="card"><div class="grid2">'+rows.map(x=>'<div><p class="xs muted">'+x[0]+'</p><p>'+esc(x[1])+'</p></div>').join('')+'</div></div>';}
  return h;
 }
 function vOre(){
@@ -1120,13 +1147,15 @@ function sheetHTML(){
   b='<h2>Rata '+i.n+' · '+esc(c.name)+'</h2><p class="muted num">'+esc(k.name)+'<br>Importo '+eur(i.amount)+(i.paid?' · già versati '+eur(i.paid):'')+' · scadenza '+fd(i.due)+'</p>';
   b+=rest>0?'<label class="f">Importo ricevuto<input class="in num" id="pay-amt" type="number" inputmode="decimal" value="'+rest+'"></label><label class="f">Metodo<select class="in" id="pay-met"><option>Contanti</option><option>Bonifico</option><option>POS</option><option>Satispay</option></select></label><button class="btn primary lg block" data-act="paySave">Registra pagamento</button><p class="xs muted">Un importo più basso viene salvato come acconto.</p>':'<span class="chip good" style="align-self:flex-start">Pagata il '+fd(i.paidOn)+'</span>';
  }
- if(s.kind==='exForm'){const f=S.ui.exf;const chips=(k)=>'<div class="chipset" role="group">'+Object.keys(MUSCLES).map(m=>'<button type="button" aria-pressed="'+(f[k].indexOf(m)>=0)+'" data-act="exMus" data-k="'+k+'" data-v="'+m+'">'+MUSCLES[m]+'</button>').join('')+'</div>';
-  b='<h2>'+(f.id?'Modifica esercizio':'Nuovo esercizio')+'</h2><label class="f">Nome<input class="in" id="exf-name" maxlength="60" value="'+esc(f.name)+'" placeholder="Es. Squat al multipower"></label>'+
-   '<label class="f">Tipo<select class="in" id="exf-mode">'+MODES.map(m=>'<option value="'+m[0]+'"'+(f.mode===m[0]?' selected':'')+'>'+m[1]+'</option>').join('')+'</select></label>'+
-   '<div class="f"><span>Muscoli principali</span>'+chips('pri')+'</div><div class="f"><span>Muscoli secondari (facoltativo)</span>'+chips('sec')+'</div>'+
+ if(s.kind==='exForm'){const f=S.ui.exf;const opt=(arr,v)=>arr.map(x=>'<option'+(x===v?' selected':'')+'>'+esc(x)+'</option>').join('');
+  b='<h2>'+(f.id?'Modifica esercizio':'Nuovo esercizio')+'</h2><label class="f">Nome<input class="in" id="exf-name" maxlength="70" value="'+esc(f.name)+'" placeholder="Es. Squat al multipower"></label>'+
+   '<div class="grid2"><label class="f">Sezione<select class="in" id="exf-sez">'+opt(SEZ,f.sez)+'</select></label><label class="f">Distretto principale<select class="in" id="exf-dist">'+opt(EXD,f.dist)+'</select></label></div>'+
+   '<label class="f">Muscoli secondari<input class="in" id="exf-sec" maxlength="120" value="'+esc(f.secTxt)+'" placeholder="Es. Glutei, core"></label>'+
+   '<label class="f">Attrezzatura<input class="in" id="exf-eq" maxlength="60" list="exf-eql" value="'+esc(f.eq)+'"><datalist id="exf-eql">'+EXE.map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist></label>'+
+   '<div class="grid2"><label class="f">Tipologia<select class="in" id="exf-tip">'+opt(EXT,f.tip)+'</select></label><label class="f">Lateralità<select class="in" id="exf-lat">'+opt(['Bilaterale / variabile','Unilaterale'],f.lat)+'</select></label></div>'+
    '<label class="f">Nota tecnica per i clienti<textarea class="in" id="exf-note" maxlength="400" placeholder="Come eseguirlo bene, in due righe">'+esc(f.note)+'</textarea></label>'+
    '<label class="f">Video YouTube (facoltativo)<input class="in" id="exf-vid" inputmode="url" placeholder="https://youtu.be/…" value="'+esc(f.vid||'')+'"></label>'+
-   '<button class="btn primary lg block" data-act="exSave">Salva esercizio</button>'+(f.id&&f.custom?'<button class="btn danger block" data-act="exDel">Elimina dalla libreria</button>':'')+(f.id&&!f.custom?'<p class="xs muted">È un esercizio di base: le tue modifiche valgono per tutte le schede.</p>':'');}
+   '<button class="btn primary lg block" data-act="exSave">Salva esercizio</button>'+(f.id?'<button class="btn danger block" data-act="exDel">Elimina dalla libreria</button>':'');}
  if(s.kind==='inviteLink'){const fn=String(s.name||'').split(' ')[0];const msg='Ciao '+fn+'! Ecco il tuo accesso personale ad AELIS Training: '+s.link+' (vale 14 giorni). A presto, Aelis';
   b='<h2>Invito pronto</h2><p class="muted">Manda questo link a '+esc(s.name)+'. È personale, vale 14 giorni e si usa una volta sola: crea il suo account con la sua email.</p><input class="in linkbox" id="il-url" readonly value="'+esc(s.link)+'" aria-label="Link d\'invito"><button class="btn primary lg block" data-act="copyLink">Copia il link</button><div class="grid2"><a class="btn" href="https://wa.me/?text='+encodeURIComponent(msg)+'" target="_blank" rel="noopener">WhatsApp</a><a class="btn" href="mailto:'+encodeURIComponent(s.email||'')+'?subject='+encodeURIComponent('Il tuo accesso ad AELIS Training')+'&body='+encodeURIComponent(msg)+'">Email</a></div><p class="xs muted">Non condividere il link nei gruppi: chi lo apre per primo può usarlo.</p>';}
  if(s.kind==='delClient'){const c=client(s.id);b='<h2>Eliminare '+esc(c?c.name:'')+'?</h2><p class="muted">Si cancellano per sempre scheda, allenamenti, check, misure, pagamenti e l\'accesso all\'app. Non si può annullare.</p><label class="f">Per confermare scrivi il nome: <b>'+esc(c?c.name:'')+'</b><input class="in" id="dl-name" autocomplete="off"></label><button class="btn danger lg block" data-act="delClient">Elimina definitivamente</button>';}
@@ -1366,28 +1395,25 @@ const A={
  calLink(){AelisCloud.calendarLink(false).then(l=>{S.ui.calLink=l;render();}).catch(e=>toast(e.message));},
  calReset(){AelisCloud.calendarLink(true).then(l=>{S.ui.calLink=l;render();toast('Nuovo indirizzo: aggiornalo in Google Calendar');}).catch(e=>toast(e.message));},
  calCopy(){const l=S.ui.calLink;if(!l)return;try{navigator.clipboard.writeText(l).then(()=>toast('Indirizzo copiato'),()=>toast('Tieni premuto sull\'indirizzo per copiarlo'));}catch(e){toast('Tieni premuto sull\'indirizzo per copiarlo');}},
- exNew(){S.ui.exf={id:null,custom:true,name:'',mode:'Esterno',pri:[],sec:[],note:'',vid:''};S.ui.sheet={kind:'exForm'};render();},
- exEdit(d){const e=exById(d.id);S.ui.exf={id:e.id,custom:!!e.custom,name:e.name,mode:e.mode,pri:e.pri.slice(),sec:e.sec.slice(),note:e.note||'',vid:(S.db.videos||{})[e.id]||''};S.ui.sheet={kind:'exForm'};render();},
- exMus(d){const f=S.ui.exf;['name','note','vid'].forEach(k=>{const el=document.getElementById('exf-'+k);if(el)f[k]=el.value;});const m=document.getElementById('exf-mode');if(m)f.mode=m.value;
-  const a=f[d.k],o=f[d.k==='pri'?'sec':'pri'];const i=a.indexOf(d.v);if(i>=0)a.splice(i,1);else{a.push(d.v);const j=o.indexOf(d.v);if(j>=0)o.splice(j,1);}render();},
- exSave(){const f=S.ui.exf;const name=val('exf-name'),note=val('exf-note'),vid=val('exf-vid'),mode=val('exf-mode');
-  if(name.length<2){toast('Scrivi il nome dell\'esercizio');return;}if(!f.pri.length){toast('Scegli almeno un muscolo principale');return;}
+ exNew(){S.ui.exf={id:null,custom:true,name:'',sez:S.ui.exsez&&SEZ.indexOf(S.ui.exsez)>=0?S.ui.exsez:'Sala pesi',dist:S.ui.exdist||'Glutei',secTxt:'',eq:'',tip:'Multiarticolare',lat:'Bilaterale / variabile',note:'',vid:''};S.ui.sheet={kind:'exForm'};render();},
+ exEdit(d){const e=exById(d.id);S.ui.exf={id:e.id,custom:!!e.custom,name:e.name,sez:e.sez||'Sala pesi',dist:e.dist||'Glutei',secTxt:e.secTxt||'',eq:e.eq||'',tip:e.tip||'Multiarticolare',lat:e.lat||'Bilaterale / variabile',note:e.note||'',vid:(S.db.videos||{})[e.id]||''};S.ui.sheet={kind:'exForm'};render();},
+ exSez(d){S.ui.exsez=d.v||'';S.ui.exdist='';render();},
+ exSave(){const f=S.ui.exf;const name=val('exf-name'),vid=val('exf-vid');
+  if(name.length<2){toast('Scrivi il nome dell\'esercizio');return;}
   if(vid&&!/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(vid)){toast('Il video deve essere un link YouTube che inizia con https://');return;}
   if(allEx().some(e=>e.id!==f.id&&e.name.toLowerCase()===name.toLowerCase())){toast('Esiste già un esercizio con questo nome');return;}
-  const data={name:name,mode:mode||'Esterno',pri:f.pri.slice(),sec:f.sec.slice(),note:note};
+  const data={name:name,sez:val('exf-sez'),dist:val('exf-dist'),secTxt:val('exf-sec'),eq:val('exf-eq'),tip:val('exf-tip'),lat:val('exf-lat'),note:val('exf-note')};
   let id=f.id;
   if(!id){id='x'+uid();S.db.customEx=S.db.customEx||[];S.db.customEx.push(Object.assign({id:id,custom:true},data));}
-  else if(f.custom){const e=S.db.customEx.find(x=>x.id===id);Object.assign(e,data);}
+  else if(f.custom){const e=S.db.customEx.find(x=>x.id===id);Object.assign(e,data);delete e.pri;delete e.sec;}
   else{S.db.exEdits=S.db.exEdits||{};S.db.exEdits[id]=data;}
   S.db.videos=S.db.videos||{};if(vid)S.db.videos[id]=vid;else delete S.db.videos[id];
   S.ui.sheet=null;S.ui.exf=null;save();render();toast(f.id?'Esercizio aggiornato':'Esercizio aggiunto alla libreria');},
- exDel(){const f=S.ui.exf;const used=S.db.programs.some(p=>p.sessions.some(se=>se.items.some(it=>it.ex===f.id)));
+ exDel(){const f=S.ui.exf;const used=S.db.programs.some(p=>p.sessions.some(se=>se.items.some(it=>it.ex===f.id||(it.alt||[]).indexOf(f.id)>=0)));
   if(used){toast('È in una scheda: toglilo prima dalla scheda');return;}
-  const e=S.db.customEx.find(x=>x.id===f.id);if(e)e.deleted=true;S.ui.sheet=null;S.ui.exf=null;S.ui.page=S.ui.page&&S.ui.page.prev||null;save();render();toast('Esercizio eliminato');},
- shareMonth(){const c=me();const n=c?histOf(c.id).filter(x=>x.date.slice(0,7)===TODAY.slice(0,7)).length:0;const t='Questo mese '+n+' allenamenti con AELIS Training. Piccoli cambiamenti, grandi risultati.';
-  if(navigator.share)navigator.share({title:'AELIS Training',text:t}).catch(()=>{});else{try{navigator.clipboard.writeText(t).then(()=>toast('Testo copiato: incollalo nella tua storia'));}catch(e){toast(t);}}},
- askDelete(){const c=me();if(!c)return;const t='Ciao Aelis, vorrei che i miei dati venissero cancellati dall\'app.';
-  if(REAL){AelisCloud.chatSend(c.id,t).then(()=>toast('Richiesta inviata ad Aelis in chat')).catch(e=>toast(e.message));}else{chatAll().push({id:uid(),client_id:c.id,coach_id:'demo',sender:'client',body:t,created_at:demoNow(),read_at:null});save();toast('Richiesta inviata ad Aelis in chat');}},
+  if(f.custom){const e=S.db.customEx.find(x=>x.id===f.id);if(e)e.deleted=true;}
+  else{S.db.exHidden=S.db.exHidden||[];if(S.db.exHidden.indexOf(f.id)<0)S.db.exHidden.push(f.id);}
+  S.ui.sheet=null;S.ui.exf=null;S.ui.page=S.ui.page&&S.ui.page.prev||null;save();render();toast('Esercizio eliminato dalla libreria');},
  like(d){const p=S.db.posts.find(x=>x.id===d.id);p.liked=!p.liked;p.likes+=p.liked?1:-1;save();render();},
 
  wrapOpen(){S.ui.wrap={i:0};render();},
@@ -1442,6 +1468,7 @@ document.addEventListener('input',e=>{
   if(b==='cmsg'){S.db.coachMsg[S.ui.page.id]=t.value;save();return;}
   if(b==='wkNote'){S.ui.wk.note=t.value;return;}
   if(b==='chkNote'){S.ui.chkNote=t.value;return;}
+  if(b==='exdist'){S.ui.exdist=t.value;render();return;}
   if(b==='chatDraft'){S.ui.chatDraft=t.value;t.style.height='auto';t.style.height=Math.min(140,t.scrollHeight)+'px';return;}
   if(b==='epName'){S.ui.editProg.sessions[S.ui.editProg.sel].name=t.value;return;}
  }
@@ -1470,12 +1497,12 @@ setInterval(()=>{
  const sh=S.db.shift;if(sh){const e2=document.getElementById('elapsed');if(e2)e2.textContent=dur((Date.now()-sh.ts)/60000)+' finora';}
 },1000);
 if(REAL&&window.AelisCloud)AelisCloud.start({S:S,emptyDb:emptyDb,clientDefaults:clientDefaults,setDb:db=>{S.db=db;},reset:()=>{S.db=emptyDb();S.ui.role='coach';S.ui.page=null;S.ui.sheet=null;S.ui.wk=null;S.ui.party=null;S.ui.wrap=null;['main','nav','overlay','wkbar','party','wrap'].forEach(id=>{const e=document.getElementById(id);if(e){e.innerHTML='';e._last=null;}});},rerender:()=>render(),toast:toast,chBoard:chBoard,
- ready:(role,cid)=>{S.ui.role=role;if(cid)S.ui.asClient=cid;S.ui.page=null;S.ui.sheet=null;S.ui.wk=null;S.ui.party=null;S.ui.tab='oggi';S.ui.ctabMain='home';render();go();openFromUrl(location.search);try{if(/[?&](chat|go)=/.test(location.search))history.replaceState(null,'',location.pathname);}catch(e){}},
+ ready:(role,cid)=>{if(role==='coach'&&migrateLib())setTimeout(save,0);S.ui.role=role;if(cid)S.ui.asClient=cid;S.ui.page=null;S.ui.sheet=null;S.ui.wk=null;S.ui.party=null;S.ui.tab='oggi';S.ui.ctabMain='home';render();go();openFromUrl(location.search);try{if(/[?&](chat|go)=/.test(location.search))history.replaceState(null,'',location.pathname);}catch(e){}},
  chatChanged:(m)=>{const pg=S.ui.page;
   if(m&&m.sender!==S.ui.role&&!(pg&&pg.name==='chat'&&chatCid()===m.client_id)){const c=client(m.client_id);toast(S.ui.role==='coach'?'Nuovo messaggio da '+(c?c.name.split(' ')[0]:'un cliente'):'Nuovo messaggio da Aelis');}
   if(pg&&(pg.name==='chat'||pg.name==='chats')&&!S.ui.sheet){const a=document.activeElement;const typing=a&&a.id==='chat-in';render();if(typing){const i=document.getElementById('chat-in');if(i){i.focus();const n=i.value.length;try{i.setSelectionRange(n,n);}catch(e){}}}}
   else updateChatBadge();}});
-else render();
+else{if(migrateLib())save();render();}
 function openFromUrl(q){
  const p=new URLSearchParams(q||'');const ch=p.get('chat'),g=p.get('go');
  if(ch){if(S.ui.role==='coach'&&client(ch))A.openChat({id:ch});else if(S.ui.role==='client')A.openChat({});return;}
