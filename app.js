@@ -120,7 +120,7 @@ function migrateLib(){const db=S.db;if((db.libV||0)>=2)return false;
  (db.customEx||[]).forEach(e=>{const used=db.programs.some(p=>p.sessions.some(se=>se.items.some(it=>it.ex===e.id)));if(!used)e.deleted=true;});
  db.programs.forEach(p=>p.sessions.forEach(se=>se.items.forEach(it=>{if(LEGACY[it.ex])it.ex=LEGACY[it.ex];it.alt=(it.alt||[]).map(k=>LEGACY[k]||k);})));
  db.exHidden=db.exHidden||[];db.libV=2;return true;}
-function emptyDb(){return {v:2,clients:[],contracts:[],programs:[],history:[],appts:[],leads:[],inbox:[],checks:[],measures:[],shifts:[],shift:null,weekly:[],requests:[],scheduled:[],coachMsg:{},posts:[],invites:[],seenBadges:{},autos:defAutos().map(a=>Object.assign(a,{log:[]})),challenges:[],videos:{},customEx:[],exEdits:{},exHidden:[],libV:2};}
+function emptyDb(){return {v:2,clients:[],contracts:[],programs:[],history:[],appts:[],leads:[],inbox:[],checks:[],measures:[],shifts:[],shift:null,weekly:[],requests:[],scheduled:[],coachMsg:{},posts:[],invites:[],seenBadges:{},autos:defAutos().map(a=>Object.assign(a,{log:[]})),challenges:[],videos:{},customEx:[],exEdits:{},exHidden:[],libV:2,ledger:[]};}
 function inits(n){return String(n||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?';}
 function clientDefaults(o){const c=Object.assign({age:'',email:'',goal:'',level:'Principiante',status:'attivo',since:TODAY,ob:{q:false,foto:false,scheda:false},avail:'',limits:'',notes:'',lastCheck:null,checkEvery:7,program:null,contract:null,showPhotos:true,community:false,answers:[],src:null,srcD:''},o);if(!c.ini)c.ini=inits(c.name);return c;}
 function pWhen(p){if(!p.date)return p.when||'';const d=diff(p.date,TODAY);return d<=0?'oggi':d===1?'ieri':d+' giorni fa';}
@@ -519,7 +519,7 @@ function vOggi(){
  const pays=[];S.db.contracts.forEach(k=>{const c=client(k.clientId);k.inst.forEach(i=>{const st=instStatus(i);if(st.k==='scaduta'||st.k==='scadenza'||(st.k==='parziale'&&diff(TODAY,i.due)<=14))pays.push({k:k,c:c,i:i,st:st});});});
  pays.sort((a,b)=>a.i.due<b.i.due?-1:1);
  const w0=monday(TODAY);const wkMin=S.db.shifts.filter(r=>r.date>=w0).reduce((s,r)=>s+mins(r.out)-mins(r.in),0)+(sh?(Date.now()-sh.ts)/60000:0);
- const months=[mAdd(CM,-2),PM,CM];const allI=[];S.db.contracts.forEach(k=>k.inst.forEach(i=>allI.push(i)));const mv=months.map(m=>allI.filter(i=>i.paidOn&&i.paidOn.slice(0,7)===m).reduce((s,i)=>s+i.paid,0));
+ const months=[mAdd(CM,-2),PM,CM];const mv=months.map(m=>inMonth(m,'in'));
  let h='<div class="row between" style="align-items:flex-end"><div><h1 class="hello">Ciao Aelis</h1><p class="date">'+cap(fl(TODAY))+'</p></div><span class="av lg" aria-hidden="true">AE</span></div>';
  h+=installCard()+pushCard();
  h+='<section class="hero'+(sh?' night':'')+'">'+(sh?
@@ -691,7 +691,7 @@ function vCliente(){
   else{
    h+='<div class="card"><div class="row between"><h3>'+esc(k.name)+'</h3><span class="chip '+(k.status==='attivo'?'good':'warn')+'">'+cap(k.status)+'</span></div><p class="small muted num">Dal '+fd(k.start)+' al '+fd(k.end)+(k.status==='sospeso'?' · sospeso dal '+fd(k.suspendedOn):'')+' · valore '+eur(k.price)+'</p>';
    if(k.lessons){const used=k.mov.filter(m=>m.delta<0).reduce((s,m)=>s-m.delta,0);const tot=used+cr.total;h+='<div class="row" style="gap:16px">'+ring(tot?used/tot:0,96,10,null,'<text x="48" y="50" text-anchor="middle" font-family="Archivo,system-ui" font-weight="850" font-size="22" fill="var(--ink)">'+cr.total+'</text><text x="48" y="66" text-anchor="middle" font-size="10" fill="var(--muted)">rimaste</text>')+'<div class="stack" style="gap:4px"><p><b>'+used+'</b> lezioni svolte su '+tot+'</p><p class="small muted">'+cr.gift+' omaggio · '+cr.paid+' incluse</p><p class="xs muted">Le omaggio si usano per prime.</p></div></div>';}
-   h+='<div class="row wrap" style="gap:6px"><button class="btn sm" data-act="sheet" data-v="proroga">Proroga</button><button class="btn sm" data-act="suspend">'+(k.status==='sospeso'?'Riattiva':'Sospendi')+'</button>'+(k.lessons?'<button class="btn sm" data-act="sheet" data-v="rettifica">Rettifica lezioni</button>':'')+'<button class="btn sm" data-act="sheet" data-v="newContract" data-id="'+c.id+'">Nuovo percorso</button></div></div>';
+   h+='<div class="row wrap" style="gap:6px"><button class="btn sm" data-act="sheet" data-v="proroga">Proroga</button><button class="btn sm" data-act="suspend">'+(k.status==='sospeso'?'Riattiva':'Sospendi')+'</button>'+(k.lessons?'<button class="btn sm" data-act="sheet" data-v="rettifica">Rettifica lezioni</button>':'')+'<button class="btn sm" data-act="sheet" data-v="contractEdit" data-id="'+k.id+'">Modifica</button><button class="btn sm" data-act="sheet" data-v="newContract" data-id="'+c.id+'">Nuovo percorso</button></div></div>';
    h+='<section class="stack">'+sec('Rate')+'<div class="list">'+k.inst.map(i=>{const st=instStatus(i);return '<button class="li" data-act="payOpen" data-k="'+k.id+'" data-n="'+i.n+'"><span class="grow"><span class="t num">Rata '+i.n+' · '+eur(i.amount)+'</span><br><span class="s">'+(i.paidOn?'Pagata il '+fd(i.paidOn)+(i.method?' · '+i.method:''):'Scadenza '+fd(i.due))+'</span></span><span class="chip '+st.c+'">'+st.l+'</span></button>';}).join('')+'</div></section>';
    if(k.lessons)h+='<section class="stack">'+sec('Registro lezioni')+'<div class="list">'+k.mov.slice().reverse().map(m=>'<div class="li"><span class="chip '+(m.delta>0?'good':'')+' num" style="min-width:44px;justify-content:center">'+(m.delta>0?'+':'')+m.delta+'</span><span class="grow"><span>'+esc(m.reason)+'</span><br><span class="s">'+fd(m.date)+' · '+(m.type==='omaggio'?'omaggio':'incluse')+' · '+esc(m.by)+'</span></span></div>').join('')+'</div></section>';
    if(k.adj.length)h+='<section class="stack">'+sec('Proroghe e sospensioni')+'<div class="list">'+k.adj.map(a=>'<div class="li"><span class="grow"><span>'+esc(a.reason)+'</span><br><span class="s">'+fd(a.date)+(a.neu?' · da '+fd(a.old)+' a '+fd(a.neu):'')+'</span></span></div>').join('')+'</div></section>';
@@ -741,10 +741,20 @@ function vAgenda(){
 }
 
 /* ---------- NUMERI ---------- */
-function allInst(){const a=[];S.db.contracts.forEach(k=>k.inst.forEach(i=>a.push({k:k,c:client(k.clientId),i:i,st:instStatus(i)})));return a;}
+function allInst(){const a=[];S.db.contracts.forEach(k=>{const c=client(k.clientId);if(!c)return;k.inst.forEach(i=>a.push({k:k,c:c,i:i,st:instStatus(i)}));});return a;}
+/* ---------- pagamenti: li registra la coach, l'app non incassa soldi ---------- */
+const METHODS=['Contanti','Bonifico','POS','Satispay','PayPal','Altro'];
+function instPays(i){if(!i.pays)i.pays=i.paid>0?[{id:'p'+uid(),date:i.paidOn||i.due,amount:i.paid,method:i.method||''}]:[];return i.pays;}
+function instSync(i){const p=instPays(i);i.paid=Math.round(p.reduce((t,x)=>t+(+x.amount||0),0)*100)/100;const last=p.slice().sort((a,b)=>a.date<b.date?1:-1)[0];i.paidOn=last?last.date:null;i.method=last?last.method:null;}
+function moves(){const out=[];
+ S.db.contracts.forEach(k=>{const c=client(k.clientId);if(!c)return;k.inst.forEach(i=>instPays(i).forEach(p=>out.push({kind:'rata',id:p.id,date:p.date,amount:+p.amount||0,type:'in',method:p.method||'',note:p.note||'',c:c,k:k,i:i,desc:'Rata '+i.n+' · '+k.name})));});
+ (S.db.ledger||[]).forEach(l=>out.push({kind:'libero',id:l.id,date:l.date,amount:+l.amount||0,type:l.type,method:l.method||'',note:l.note||'',c:l.clientId?client(l.clientId):null,desc:l.desc}));
+ return out.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);}
+const inMonth=(m,typ)=>moves().filter(x=>x.type===typ&&x.date.slice(0,7)===m).reduce((t,x)=>t+x.amount,0);
+const monthName=m=>cap(MESI[+m.slice(5)-1])+' '+m.slice(0,4);
 function vNumeri(){
  const t=S.ui.ntab;
- let h='<h1 class="h2">Numeri</h1><div class="segbar" role="group" aria-label="Sezione">'+[['panoramica','Panoramica'],['acquisizione','Acquisizione'],['incassi','Incassi']].map(x=>'<button aria-pressed="'+(t===x[0])+'" data-act="numeri" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>';
+ let h='<h1 class="h2">Numeri</h1><div class="segbar" role="group" aria-label="Sezione">'+[['panoramica','Panoramica'],['acquisizione','Acquisizione'],['incassi','Pagamenti']].map(x=>'<button aria-pressed="'+(t===x[0])+'" data-act="numeri" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>';
  if(t==='panoramica')h+=nPanoramica();if(t==='acquisizione')h+=nAcquisizione();if(t==='incassi')h+=nIncassi();
  return h;
 }
@@ -752,7 +762,7 @@ function nPanoramica(){
  const act=S.db.clients.filter(c=>c.status==='attivo').length;const newOct=S.db.clients.filter(c=>(c.since||'').slice(0,7)===CM).length;
  const wk=weeklyPT();const last=wk[wk.length-1].pt,prev=wk[wk.length-2].pt;
  const curW=monday(TODAY);const curDone=S.db.appts.filter(a=>a.type==='pt'&&a.date>=curW&&a.status==='svolto').length;const curPlan=S.db.appts.filter(a=>a.type==='pt'&&a.date>=curW&&a.date<addDays(curW,7)&&a.status!=='annullato').length;
- const all=allInst();const oct=all.filter(x=>x.i.paidOn&&x.i.paidOn.slice(0,7)===CM).reduce((s,x)=>s+x.i.paid,0),sep=all.filter(x=>x.i.paidOn&&x.i.paidOn.slice(0,7)===PM).reduce((s,x)=>s+x.i.paid,0);
+ const oct=inMonth(CM,'in'),sep=inMonth(PM,'in');
  const auto=S.db.history.filter(x=>x.type==='autonomo'&&x.date>=addDays(TODAY,-14)).length;
  const dl=(a,b,u)=>{const d=a-b;return '<span class="delta '+(d>=0?'up':'down')+'">'+(d>=0?'▲ ':'▼ ')+(u==='eur'?eur(Math.abs(d)):Math.abs(d))+' vs prima</span>';};
  let h='<div class="grid2">'+kpi(cnt(act),'Clienti attivi','<span class="delta up">+'+newOct+' nuovi a '+MN+'</span>','data-act="tab" data-v="clienti"')+kpi(cnt(last),'Lezioni PT sett. scorsa',dl(last,prev))+kpi(cnt(oct,'eur'),'Incassi '+MN,dl(oct,sep,'eur'),'data-act="numeri" data-v="incassi"')+kpi(cnt(auto),'Allenamenti autonomi in 14 gg','<span class="delta" style="color:var(--muted)">registrati dai clienti</span>')+'</div>';
@@ -796,21 +806,24 @@ function nAcquisizione(){
  return h;
 }
 function nIncassi(){
- const all=allInst();
- const inc=all.filter(x=>x.i.paidOn&&x.i.paidOn.slice(0,7)===CM).reduce((s,x)=>s+x.i.paid,0);
- const due30=all.filter(x=>x.st.k!=='pagata'&&diff(TODAY,x.i.due)<=30&&diff(TODAY,x.i.due)>=0).reduce((s,x)=>s+x.i.amount-x.i.paid,0);
- const over=all.filter(x=>x.st.k==='scaduta').reduce((s,x)=>s+x.i.amount-x.i.paid,0);
- const months=[mAdd(CM,-2),PM,CM,mAdd(CM,1),mAdd(CM,2)];
- let h='<div class="grid3">'+kpi(cnt(inc,'eur'),'Incassato a '+MN)+kpi(cnt(due30,'eur'),'Da incassare in 30 gg')+kpi('<span style="color:'+(over?'var(--crit)':'inherit')+'">'+eur(over)+'</span>','Scaduto')+'</div>';
- const rows=months.map(m=>{const paid=all.filter(x=>x.i.paidOn&&x.i.paidOn.slice(0,7)===m).reduce((s,x)=>s+x.i.paid,0);const exp=all.filter(x=>x.i.due.slice(0,7)===m&&x.st.k!=='pagata').reduce((s,x)=>s+x.i.amount-x.i.paid,0);const fut=m>CM;const nm=cap(MESI[+m.slice(5)-1].slice(0,3));
-  return{x:nm,y:fut?exp:paid,label:eur(fut?exp:paid),soft:fut,hl:m===CM,tip:nm+': '+(fut?'previsti '+eur(exp):'incassati '+eur(paid)+(exp?' · da incassare '+eur(exp):''))};});
- h+='<div class="card"><div class="row between"><h3>Incassi per mese</h3><span class="xs muted">chiari = previsti</span></div>'+barChart(rows,{money:true,label:'Incassi per mese'})+'</div>';
+ const m=S.ui.pm||CM;const all=allInst();
+ const inc=inMonth(m,'in'),outm=inMonth(m,'out');
+ const due30=all.filter(x=>x.st.k!=='pagata'&&diff(TODAY,x.i.due)<=30&&diff(TODAY,x.i.due)>=0).reduce((t,x)=>t+x.i.amount-x.i.paid,0);
+ const over=all.filter(x=>x.st.k==='scaduta').reduce((t,x)=>t+x.i.amount-x.i.paid,0);
+ let h='<div class="row between"><button class="btn sm" data-act="pmNav" data-v="-1" aria-label="Mese prima">'+ic('back',16)+'</button><h3>'+monthName(m)+'</h3><button class="btn sm" data-act="pmNav" data-v="1" aria-label="Mese dopo" style="transform:scaleX(-1)">'+ic('back',16)+'</button></div>';
+ h+='<div class="grid2">'+kpi(eur(inc),'Entrate')+kpi(eur(outm),'Spese')+kpi('<span style="color:'+(inc-outm<0?'var(--crit)':'inherit')+'">'+eur(inc-outm)+'</span>','Netto del mese')+kpi('<span style="color:'+(over?'var(--crit)':'inherit')+'">'+eur(over)+'</span>','Rate scadute','<span class="delta" style="color:var(--muted)">'+eur(due30)+' in arrivo nei prossimi 30 gg</span>')+'</div>';
+ h+='<div class="grid2"><button class="btn primary" data-act="mvNew" data-v="in">'+ic('plus',16)+' Entrata</button><button class="btn" data-act="mvNew" data-v="out">'+ic('plus',16)+' Spesa</button></div>';
+ const months=[-4,-3,-2,-1,0,1].map(k=>mAdd(CM,k));
+ const rows=months.map(mm=>{const paid=inMonth(mm,'in');const exp=all.filter(x=>x.i.due.slice(0,7)===mm&&x.st.k!=='pagata').reduce((t,x)=>t+x.i.amount-x.i.paid,0);const fut=mm>CM;const nm=cap(MESI[+mm.slice(5)-1].slice(0,3));
+  return{x:nm,y:fut?exp:paid,label:eur(fut?exp:paid),soft:fut,hl:mm===m,tip:nm+': '+(fut?'previsti '+eur(exp):'entrate '+eur(paid)+(exp?' · da incassare '+eur(exp):''))};});
+ h+='<div class="card"><div class="row between"><h3>Entrate per mese</h3><span class="xs muted">chiaro = previsto</span></div>'+barChart(rows,{money:true,label:'Entrate per mese'})+'</div>';
  const order={scaduta:0,scadenza:1,parziale:2,programma:3,pagata:4};
  const open=all.filter(x=>x.st.k!=='pagata').sort((a,b)=>order[a.st.k]-order[b.st.k]||(a.i.due<b.i.due?-1:1));
- h+='<section class="stack">'+sec('Rate da incassare')+'<div class="list">'+open.slice(0,8).map(x=>'<button class="li" data-act="payOpen" data-k="'+x.k.id+'" data-n="'+x.i.n+'"><span class="av">'+x.c.ini+'</span><span class="grow"><span class="t">'+esc(x.c.name)+'</span><br><span class="s num">Rata '+x.i.n+'/'+x.k.inst.length+' · '+eur(x.i.amount-x.i.paid)+' · '+fd(x.i.due)+'</span></span><span class="chip '+x.st.c+'">'+x.st.l+'</span></button>').join('')+'</div></section>';
- const paid=all.filter(x=>x.i.paidOn).sort((a,b)=>a.i.paidOn<b.i.paidOn?1:-1);
- h+='<section class="stack">'+sec('Ultimi incassi')+'<div class="list">'+paid.slice(0,5).map(x=>'<div class="li"><span class="av">'+x.c.ini+'</span><span class="grow"><span class="t">'+esc(x.c.name)+'</span><br><span class="s">'+fd(x.i.paidOn)+' · '+esc(x.i.method||'')+'</span></span><span class="num" style="font-weight:700">'+eur(x.i.paid)+'</span></div>').join('')+'</div></section>';
- h+=empty('Registro degli incassi, non fatturazione. Pagamenti online: possibili più avanti.');
+ const shown=S.ui.payAll?open:open.slice(0,6);
+ h+='<section class="stack">'+sec('Rate da incassare','<span class="chip">'+open.length+'</span>')+(open.length?'<div class="list">'+shown.map(x=>'<button class="li" data-act="payOpen" data-k="'+x.k.id+'" data-n="'+x.i.n+'"><span class="av">'+esc(x.c.ini)+'</span><span class="grow"><span class="t">'+esc(x.c.name)+'</span><br><span class="s num">Rata '+x.i.n+'/'+x.k.inst.length+' · '+eur(x.i.amount-x.i.paid)+' · '+fd(x.i.due)+'</span></span><span class="chip '+x.st.c+'">'+x.st.l+'</span></button>').join('')+'</div>'+(open.length>6?'<button class="btn sm ghost" data-act="payAll">'+(S.ui.payAll?'Mostra meno':'Mostra tutte')+'</button>':''):empty('Nessuna rata da incassare.'))+'</section>';
+ const mv=moves().filter(x=>x.date.slice(0,7)===m);
+ h+='<section class="stack">'+sec('Movimenti di '+cap(MESI[+m.slice(5)-1]),mv.length?'<button class="lnk" data-act="csvMonth">Esporta</button>':'')+(mv.length?'<div class="list">'+mv.map(x=>'<button class="li" data-act="mvOpen" data-kind="'+x.kind+'" data-id="'+x.id+'"'+(x.kind==='rata'?' data-k="'+x.k.id+'" data-n="'+x.i.n+'"':'')+'><span class="av" style="'+(x.type==='out'?'background:var(--crit-bg);color:var(--crit)':'')+'">'+(x.c?esc(x.c.ini):ic(x.type==='out'?'wallet':'plus',16))+'</span><span class="grow"><span class="t">'+esc(x.c?x.c.name:x.desc)+'</span><br><span class="s">'+fd(x.date)+' · '+esc(x.c?x.desc:(x.method||(x.type==='out'?'Spesa':'Entrata')))+(x.c&&x.method?' · '+esc(x.method):'')+'</span></span><span class="num" style="font-weight:750;color:'+(x.type==='out'?'var(--crit)':'var(--good)')+'">'+(x.type==='out'?'−':'+')+eur(x.amount)+'</span></button>').join('')+'</div>':empty('Nessun movimento in questo mese. Registra un pagamento da una rata o con "Entrata".'))+'</section>';
+ h+=empty('Qui registri tu ogni pagamento ricevuto (contanti, bonifico, POS…) e le spese. L\'app non incassa soldi e non fa fatture: è il tuo registro.');
  return h;
 }
 
@@ -1143,10 +1156,25 @@ function sheetHTML(){
   }else b+='<span class="chip '+(a.status==='svolto'?'good':'')+'" style="align-self:flex-start">'+cap(a.status)+'</span>';
  }
  if(s.kind==='pay'){
-  const k=S.db.contracts.find(x=>x.id===s.k);const i=k.inst.find(x=>x.n===+s.n);const c=client(k.clientId);const rest=i.amount-i.paid;
-  b='<h2>Rata '+i.n+' · '+esc(c.name)+'</h2><p class="muted num">'+esc(k.name)+'<br>Importo '+eur(i.amount)+(i.paid?' · già versati '+eur(i.paid):'')+' · scadenza '+fd(i.due)+'</p>';
-  b+=rest>0?'<label class="f">Importo ricevuto<input class="in num" id="pay-amt" type="number" inputmode="decimal" value="'+rest+'"></label><label class="f">Metodo<select class="in" id="pay-met"><option>Contanti</option><option>Bonifico</option><option>POS</option><option>Satispay</option></select></label><button class="btn primary lg block" data-act="paySave">Registra pagamento</button><p class="xs muted">Un importo più basso viene salvato come acconto.</p>':'<span class="chip good" style="align-self:flex-start">Pagata il '+fd(i.paidOn)+'</span>';
+  const k=S.db.contracts.find(x=>x.id===s.k);const i=k.inst.find(x=>x.n===+s.n);const c=client(k.clientId);const pays=instPays(i);const rest=Math.max(0,Math.round((i.amount-i.paid)*100)/100);
+  b='<h2>Rata '+i.n+' · '+esc(c.name)+'</h2><p class="muted small">'+esc(k.name)+'</p>';
+  b+='<div class="grid2"><label class="f">Importo della rata (€)<input class="in num" id="ra-amt" inputmode="decimal" value="'+i.amount+'"></label><label class="f">Scadenza<input class="in" id="ra-due" type="date" value="'+i.due+'"></label></div><button class="btn sm" style="align-self:flex-start" data-act="rataEdit">Salva importo e scadenza</button>';
+  if(pays.length)b+='<div class="stack" style="gap:6px"><p class="xs muted">Pagamenti registrati</p><div class="list">'+pays.map(p=>'<div class="li"><span class="grow"><span class="t num">'+eur(p.amount)+'</span><br><span class="s">'+fd(p.date)+(p.method?' · '+esc(p.method):'')+(p.note?' · '+esc(p.note):'')+'</span></span><button class="xbtn" data-act="payDel" data-id="'+p.id+'" aria-label="Elimina pagamento">'+ic('x',16)+'</button></div>').join('')+'</div></div>';
+  b+=rest>0?'<h3>Registra un pagamento</h3><div class="grid2"><label class="f">Importo ricevuto (€)<input class="in num" id="pay-amt" inputmode="decimal" value="'+rest+'"></label><label class="f">Data<input class="in" id="pay-date" type="date" value="'+TODAY+'"></label></div><label class="f">Metodo<select class="in" id="pay-met">'+METHODS.map(m=>'<option>'+m+'</option>').join('')+'</select></label><label class="f">Nota (facoltativa, la vedi solo tu)<input class="in" id="pay-note" maxlength="120"></label><button class="btn primary lg block" data-act="paySave">Registra pagamento</button><p class="xs muted">Un importo più basso della rata resta come acconto.</p>':'<span class="chip good" style="align-self:flex-start">Rata saldata</span>';
+  if(!pays.length&&k.inst.length>1)b+='<button class="btn sm danger" style="align-self:flex-start" data-act="rataDel">Elimina questa rata</button>';
  }
+ if(s.kind==='mv'){const v=S.ui.mv;const out=v.type==='out';
+  b='<h2>'+(v.id?'Modifica ':'Nuova ')+(out?'spesa':'entrata')+'</h2><div class="chipset" role="group"><button type="button" aria-pressed="'+(!out)+'" data-act="mvType" data-v="in">Entrata</button><button type="button" aria-pressed="'+out+'" data-act="mvType" data-v="out">Spesa</button></div>'+
+   '<label class="f">Descrizione<input class="in" id="mv-desc" maxlength="80" value="'+esc(v.desc)+'" placeholder="'+(out?'Es. affitto sala, attrezzatura, corso':'Es. lezione singola, prova pagata')+'"></label>'+
+   '<div class="grid2"><label class="f">Importo (€)<input class="in num" id="mv-amt" inputmode="decimal" value="'+esc(v.amount)+'"></label><label class="f">Data<input class="in" id="mv-date" type="date" value="'+v.date+'"></label></div>'+
+   (out?'':'<label class="f">Cliente (facoltativo)<select class="in" id="mv-cl"><option value="">Nessuno</option>'+S.db.clients.map(c=>'<option value="'+c.id+'"'+(v.clientId===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></label>')+
+   '<label class="f">Metodo<select class="in" id="mv-met">'+METHODS.map(m=>'<option'+(v.method===m?' selected':'')+'>'+m+'</option>').join('')+'</select></label><label class="f">Nota (facoltativa)<input class="in" id="mv-note" maxlength="120" value="'+esc(v.note)+'"></label>'+
+   '<button class="btn primary lg block" data-act="mvSave">Salva</button>'+(v.id?'<button class="btn danger block" data-act="mvDel">Elimina</button>':'');}
+ if(s.kind==='contractEdit'){const k=S.db.contracts.find(x=>x.id===s.id);
+  b='<h2>Modifica percorso</h2><label class="f">Nome<input class="in" id="ke-name" maxlength="80" value="'+esc(k.name)+'"></label><div class="grid2"><label class="f">Inizio<input class="in" id="ke-start" type="date" value="'+k.start+'"></label><label class="f">Fine<input class="in" id="ke-end" type="date" value="'+(k.end||'')+'"></label></div><label class="f">Valore totale (€)<input class="in num" id="ke-price" inputmode="decimal" value="'+k.price+'"></label><button class="btn primary lg block" data-act="keSave" data-id="'+k.id+'">Salva</button>'+
+   '<h3>Aggiungi una rata</h3><div class="grid2"><label class="f">Importo (€)<input class="in num" id="ke-ramt" inputmode="decimal"></label><label class="f">Scadenza<input class="in" id="ke-rdue" type="date" value="'+TODAY+'"></label></div><button class="btn block" data-act="keAddRata" data-id="'+k.id+'">'+ic('plus',16)+' Aggiungi rata</button>'+
+   (k.inst.every(i=>!instPays(i).length)?'<button class="btn sm danger" style="align-self:flex-start" data-act="keDel" data-id="'+k.id+'">Elimina percorso</button>':'');}
+
  if(s.kind==='exForm'){const f=S.ui.exf;const opt=(arr,v)=>arr.map(x=>'<option'+(x===v?' selected':'')+'>'+esc(x)+'</option>').join('');
   b='<h2>'+(f.id?'Modifica esercizio':'Nuovo esercizio')+'</h2><label class="f">Nome<input class="in" id="exf-name" maxlength="70" value="'+esc(f.name)+'" placeholder="Es. Squat al multipower"></label>'+
    '<div class="grid2"><label class="f">Sezione<select class="in" id="exf-sez">'+opt(SEZ,f.sez)+'</select></label><label class="f">Distretto principale<select class="in" id="exf-dist">'+opt(EXD,f.dist)+'</select></label></div>'+
@@ -1274,7 +1302,26 @@ const A={
  reqOk(d){const r=S.db.requests.find(x=>x.id===d.id);r.status='ok';if(r.from){const a=S.db.appts.find(x=>x.clientId===r.clientId&&x.date===r.date&&x.time===r.from);if(a)a.time=r.to;}else{const a=S.db.appts.find(x=>x.reqId===r.id);if(a)a.status='previsto';}save();toast('Approvata: '+client(r.clientId).name.split(' ')[0]+' riceve la conferma');},
  reqNo(d){const r=S.db.requests.find(x=>x.id===d.id);r.status='no';const a=S.db.appts.find(x=>x.reqId===r.id);if(a)a.status='annullato';save();toast('Richiesta rifiutata');},
  payOpen(d){S.ui.sheet={kind:'pay',k:d.k,n:d.n};render();},
- paySave(){const s=S.ui.sheet;const k=S.db.contracts.find(x=>x.id===s.k);const i=k.inst.find(x=>x.n===+s.n);const amt=parseFloat(val('pay-amt').replace(',','.'));if(!(amt>0)){toast('Inserisci un importo');return;}i.paid=Math.min(i.amount,i.paid+amt);i.paidOn=TODAY;i.method=val('pay-met');S.ui.sheet=null;save();toast(i.paid>=i.amount?'Rata '+i.n+' saldata':'Acconto registrato: mancano '+eur(i.amount-i.paid));},
+ paySave(){const s=S.ui.sheet;const k=S.db.contracts.find(x=>x.id===s.k);const i=k.inst.find(x=>x.n===+s.n);const amt=Math.round(parseFloat((val('pay-amt')||'').replace(',','.'))*100)/100;if(!(amt>0)){toast('Inserisci un importo');return;}
+  instPays(i).push({id:'p'+uid(),date:val('pay-date')||TODAY,amount:amt,method:val('pay-met'),note:val('pay-note')});instSync(i);save();render();toast(i.paid>=i.amount?'Rata '+i.n+' saldata':'Acconto registrato: mancano '+eur(i.amount-i.paid));},
+ payDel(d){const s=S.ui.sheet;const k=S.db.contracts.find(x=>x.id===s.k);const i=k.inst.find(x=>x.n===+s.n);i.pays=instPays(i).filter(p=>p.id!==d.id);instSync(i);save();render();toast('Pagamento eliminato');},
+ rataEdit(){const s=S.ui.sheet;const k=S.db.contracts.find(x=>x.id===s.k);const i=k.inst.find(x=>x.n===+s.n);const a=Math.round(parseFloat((val('ra-amt')||'').replace(',','.'))*100)/100;const d=val('ra-due');if(!(a>=0)||!d){toast('Controlla importo e data');return;}i.amount=a;i.due=d;instSync(i);save();render();toast('Rata aggiornata');},
+ rataDel(){const s=S.ui.sheet;const k=S.db.contracts.find(x=>x.id===s.k);k.inst=k.inst.filter(x=>x.n!==+s.n);k.inst.sort((a,b)=>a.due<b.due?-1:1).forEach((x,ix)=>{x.n=ix+1;});S.ui.sheet=null;save();render();toast('Rata eliminata');},
+ pmNav(d){const m=mAdd(S.ui.pm||CM,+d.v);if(m>mAdd(CM,12))return;S.ui.pm=m;render();},
+ payAll(){S.ui.payAll=!S.ui.payAll;render();},
+ mvNew(d){S.ui.mv={id:null,type:d.v,date:TODAY,amount:'',desc:d.v==='in'?'Lezione singola':'',clientId:'',method:d.v==='in'?'Contanti':'Bonifico',note:''};S.ui.sheet={kind:'mv'};render();},
+ mvOpen(d){if(d.kind==='rata'){A.payOpen(d);return;}const l=(S.db.ledger||[]).find(x=>x.id===d.id);if(!l)return;S.ui.mv=Object.assign({},l);S.ui.sheet={kind:'mv'};render();},
+ mvType(d){const v=S.ui.mv;['desc','amt','date','note','met','cl'].forEach(k=>{const e=document.getElementById('mv-'+k);if(e)v[{amt:'amount',met:'method',cl:'clientId'}[k]||k]=e.value;});v.type=d.v;if(d.v==='out')v.clientId='';render();},
+ mvSave(){const v=S.ui.mv;const amt=Math.round(parseFloat((val('mv-amt')||'').replace(',','.'))*100)/100;const desc=val('mv-desc');if(!(amt>0)){toast('Inserisci un importo');return;}if(!desc&&!val('mv-cl')){toast('Scrivi una descrizione');return;}
+  const row={id:v.id||'l'+uid(),type:v.type,date:val('mv-date')||TODAY,amount:amt,desc:desc||'Pagamento',clientId:v.type==='in'?val('mv-cl'):'',method:val('mv-met'),note:val('mv-note')};
+  S.db.ledger=S.db.ledger||[];const ix=S.db.ledger.findIndex(x=>x.id===row.id);if(ix>=0)S.db.ledger[ix]=row;else S.db.ledger.push(row);
+  S.ui.pm=row.date.slice(0,7);S.ui.sheet=null;S.ui.mv=null;save();render();toast(v.type==='out'?'Spesa registrata':'Entrata registrata');},
+ mvDel(){const v=S.ui.mv;S.db.ledger=(S.db.ledger||[]).filter(x=>x.id!==v.id);S.ui.sheet=null;S.ui.mv=null;save();render();toast('Movimento eliminato');},
+ keSave(d){const k=S.db.contracts.find(x=>x.id===d.id);const n=val('ke-name');const p=parseFloat((val('ke-price')||'0').replace(',','.'));if(!n){toast('Scrivi il nome');return;}k.name=n;k.start=val('ke-start')||k.start;k.end=val('ke-end')||k.end;k.price=p>=0?Math.round(p*100)/100:k.price;S.ui.sheet=null;save();render();toast('Percorso aggiornato');},
+ keAddRata(d){const k=S.db.contracts.find(x=>x.id===d.id);const a=Math.round(parseFloat((val('ke-ramt')||'').replace(',','.'))*100)/100;const due=val('ke-rdue');if(!(a>0)||!due){toast('Servono importo e scadenza');return;}k.inst.push({n:0,due:due,amount:a,paid:0,paidOn:null,method:null,pays:[]});k.inst.sort((x,y)=>x.due<y.due?-1:1).forEach((x,ix)=>{x.n=ix+1;});save();render();toast('Rata aggiunta');},
+ keDel(d){const k=S.db.contracts.find(x=>x.id===d.id);const c=client(k.clientId);S.db.contracts=S.db.contracts.filter(x=>x.id!==k.id);if(c&&c.contract===k.id){const other=S.db.contracts.filter(x=>x.clientId===c.id).slice(-1)[0];c.contract=other?other.id:null;}S.ui.sheet=null;save();render();toast('Percorso eliminato');},
+ csvMonth(){const m=S.ui.pm||CM;const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const rows=[['Data','Tipo','Descrizione','Cliente','Metodo','Importo','Nota']].concat(moves().filter(x=>x.date.slice(0,7)===m).map(x=>[x.date,x.type==='out'?'Spesa':'Entrata',x.desc,x.c?x.c.name:'',x.method,(x.type==='out'?-x.amount:x.amount).toFixed(2).replace('.',','),x.note]));
+  const blob=new Blob(['﻿'+rows.map(r=>r.map(q).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='aelis-movimenti-'+m+'.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},800);toast('File scaricato: si apre con Excel o Numbers');},
  inviteSend(d){const n=val('inv-name'),m=val('inv-mail').toLowerCase(),goal=val('inv-goal');if(n.length<2){toast('Scrivi nome e cognome');return;}
   if(m&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m)){toast('L\'email non è valida: correggila o lasciala vuota');return;}
   if(m&&S.db.clients.some(c=>(c.email||'').toLowerCase()===m)){toast('C\'è già un cliente con questa email');return;}

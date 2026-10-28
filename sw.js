@@ -1,5 +1,5 @@
 /* Service worker: l'app si apre anche senza connessione (palestre senza campo). */
-const CACHE = 'aelis-v11';
+const CACHE = 'aelis-v12';
 const CORE = ['./', 'index.html', 'app.js', 'exercises.js', 'cloud.js', 'config.js', 'privacy.html', 'manifest.webmanifest', 'icons/favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

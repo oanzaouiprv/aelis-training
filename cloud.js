@@ -307,7 +307,7 @@ function clientSpace(c){
  const db=api.S.db,cid=c.id,pick={};SAFE.forEach(k=>{if(k in c)pick[k]=c[k];});
  const req={};db.requests.forEach(r=>{if(r.clientId===cid&&r._c&&r.status!=='attesa')req[r.id]=r.status;});
  return {client:pick,
-  contracts:db.contracts.filter(k=>k.clientId===cid),
+  contracts:db.contracts.filter(k=>k.clientId===cid).map(k=>Object.assign({},k,{inst:k.inst.map(i=>Object.assign({},i,{pays:(i.pays||[]).map(p=>({date:p.date,amount:p.amount,method:p.method}))}))})),
   programs:db.programs.filter(p=>p.clientId===cid),
   appts:db.appts.filter(a=>a.clientId===cid).map(a=>({id:a.id,date:a.date,time:a.time,dur:a.dur,type:a.type,status:a.status,clientId:cid,reqId:a.reqId||null})),
   measures:db.measures.filter(m=>m.clientId===cid),
