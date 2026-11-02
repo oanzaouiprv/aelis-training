@@ -40,7 +40,7 @@ pie:'<path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>
 check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
 play:'<path d="M8 5.5v13l11-6.5z"/>',
 clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
-msg:'<path d="M4 5h16v11H9l-5 4z"/>',
+msg:'<path d="M4 5h16v11H9l-5 4z"/>',phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
 bell:'<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/>',
 plus:'<path d="M12 5v14M5 12h14"/>',
 chev:'<path d="m9 5 7 7-7 7"/>',
@@ -120,9 +120,37 @@ function migrateLib(){const db=S.db;if((db.libV||0)>=2)return false;
  (db.customEx||[]).forEach(e=>{const used=db.programs.some(p=>p.sessions.some(se=>se.items.some(it=>it.ex===e.id)));if(!used)e.deleted=true;});
  db.programs.forEach(p=>p.sessions.forEach(se=>se.items.forEach(it=>{if(LEGACY[it.ex])it.ex=LEGACY[it.ex];it.alt=(it.alt||[]).map(k=>LEGACY[k]||k);})));
  db.exHidden=db.exHidden||[];db.libV=2;return true;}
-function emptyDb(){return {v:2,clients:[],contracts:[],programs:[],history:[],appts:[],leads:[],inbox:[],checks:[],measures:[],shifts:[],shift:null,weekly:[],requests:[],scheduled:[],coachMsg:{},posts:[],invites:[],seenBadges:{},autos:defAutos().map(a=>Object.assign(a,{log:[]})),challenges:[],videos:{},customEx:[],exEdits:{},exHidden:[],libV:2,ledger:[]};}
+/* ===== gestione clienti: anagrafica unica, prova gratuita una tantum, stati ===== */
+const STG={prova:{l:'Prova',c:'warn'},decisione:{l:'In attesa di decisione',c:'warn'},attivo:{l:'Attivo',c:'good'},rinnovo:{l:'In attesa di rinnovo',c:'warn'},archivio:{l:'Archivio',c:''}};
+const OUTC={percorso:'Inizia un percorso',pensa:'Ci pensa',no:'Non interessato'};
+const stageOf2=c=>STG[c.stage]?c.stage:'attivo';
+function clog(c,t){c.log=c.log||[];c.log.unshift({date:TODAY,text:t});if(c.log.length>200)c.log.length=200;}
+function setStage(c,st,why){if(c.stage===st)return;c.stage=st;clog(c,'Stato: '+STG[st].l+(why?' · '+why:''));}
+const trialOf=c=>c.trial||{status:'none'};
+const trialUsed=c=>trialOf(c).status==='svolta';
+const needsOutcome=c=>trialUsed(c)&&!trialOf(c).outcome&&c.stage!=='archivio';
+const normPhone=x=>String(x||'').replace(/\D/g,'').slice(-9);
+function findDup(o,exceptId){const ph=normPhone(o.phone),em=String(o.email||'').trim().toLowerCase(),nm=(String(o.first||'')+' '+String(o.last||'')).trim().toLowerCase();
+ return S.db.clients.find(c=>c.id!==exceptId&&((ph.length>=6&&normPhone(c.phone)===ph)||(em&&String(c.email||'').toLowerCase()===em)||(nm.indexOf(' ')>0&&String(c.name||'').trim().toLowerCase()===nm)));}
+// a fine pacchetto, senza rinnovo, il cliente passa da solo a "In attesa di rinnovo" (mai in archivio)
+function refreshStages(){let ch=false;S.db.clients.forEach(c=>{if(!c.stage){c.stage='attivo';ch=true;}
+ const act=activeServices(c).length>0;
+ if(c.stage==='attivo'&&!act&&servicesOf(c).length){setStage(c,'rinnovo','servizi terminati');ch=true;}
+ else if(c.stage==='rinnovo'&&act){setStage(c,'attivo','servizio attivo');ch=true;}});return ch;}
+function migrateCRM(){const db=S.db;if((db.crmV||0)>=1)return false;
+ const orig=src=>src==='Sala'?'interno':'esterno';
+ db.clients.forEach(c=>{if(!c.stage)c.stage='attivo';if(!c.origin)c.origin=orig(c.src);if(c.gym==null)c.gym=c.origin==='interno';
+  if(c.first==null){const p=String(c.name||'').trim().split(/\s+/);c.first=p[0]||'';c.last=p.slice(1).join(' ');}if(c.phone==null)c.phone='';if(!c.trial)c.trial={status:'none'};if(!c.log)c.log=[];});
+ (db.leads||[]).forEach(l=>{if(l.stage==='cliente')return;const p=String(l.name||'').trim().split(/\s+/);
+  const ap=db.appts.find(a=>a.leadId===l.id);const day=(l.free||'').slice(0,10)||null;
+  const c=clientDefaults({id:'c'+uid(),name:l.name,first:p[0]||'',last:p.slice(1).join(' '),src:l.src||null,srcD:l.srcD||'',origin:orig(l.src),stage:l.stage==='perso'?'archivio':l.stage==='svolta'?'decisione':'prova',since:l.contacted||TODAY,notes:[l.next,l.interest].filter(Boolean).join(' · ')});
+  if(ap){ap.clientId=c.id;delete ap.leadId;delete ap.title;}
+  c.trial=(l.stage==='svolta'||l.stage==='perso')?{status:'svolta',date:day,doneOn:day,outcome:l.stage==='perso'?'no':null,apptId:ap&&ap.id}:day?{status:'programmata',date:day,apptId:ap&&ap.id}:{status:'none'};
+  c.log=[{date:TODAY,text:'Importato dai vecchi contatti'}];db.clients.push(c);});
+ db.leads=[];db.crmV=1;return true;}
+function emptyDb(){return {v:2,clients:[],contracts:[],programs:[],history:[],appts:[],leads:[],inbox:[],checks:[],measures:[],shifts:[],shift:null,weekly:[],requests:[],scheduled:[],coachMsg:{},posts:[],invites:[],seenBadges:{},crmV:1,autos:defAutos().map(a=>Object.assign(a,{log:[]})),challenges:[],videos:{},customEx:[],exEdits:{},exHidden:[],libV:2,ledger:[]};}
 function inits(n){return String(n||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase()||'?';}
-function clientDefaults(o){const c=Object.assign({age:'',email:'',goal:'',level:'Principiante',status:'attivo',since:TODAY,ob:{q:false,foto:false,scheda:false},avail:'',limits:'',notes:'',lastCheck:null,checkEvery:7,program:null,contract:null,showPhotos:true,community:false,answers:[],src:null,srcD:''},o);if(!c.ini)c.ini=inits(c.name);return c;}
+function clientDefaults(o){const c=Object.assign({first:'',last:'',phone:'',origin:'esterno',gym:false,stage:'attivo',trial:{status:'none'},log:[],age:'',email:'',goal:'',level:'Principiante',status:'attivo',since:TODAY,ob:{q:false,foto:false,scheda:false},avail:'',limits:'',notes:'',lastCheck:null,checkEvery:7,program:null,contract:null,showPhotos:true,community:false,answers:[],src:null,srcD:''},o);if(!c.ini)c.ini=inits(c.name);return c;}
 function pWhen(p){if(!p.date)return p.when||'';const d=diff(p.date,TODAY);return d<=0?'oggi':d===1?'ieri':d+' giorni fa';}
 function seed(){const db=seed0();const L=LEGACY;const m=k=>L[k]||k;
  db.programs.forEach(p=>p.sessions.forEach(se=>se.items.forEach(it=>{it.ex=m(it.ex);it.alt=(it.alt||[]).map(m);})));
@@ -247,12 +275,23 @@ if(!S.db.challenges)S.db.challenges=defChallenges();
 
 /* ---------- logica ---------- */
 const client=id=>S.db.clients.find(c=>c.id===id);
-const contractOf=c=>c?S.db.contracts.find(k=>k.id===c.contract):null;
+/* ===== servizi (pacchetti): un cliente può averne più di uno, ognuno con saldo e scadenze propri ===== */
+const KIND={singola:'Lezione singola',mensile:'Pacchetto mensile',plurimensile:'Pacchetto plurimensile',scheda:'Solo scheda'};
+const servicesOf=c=>c?S.db.contracts.filter(k=>k.clientId===c.id):[];
+function serviceActive(k){if(!k||k.status==='chiuso')return false;if(k.status==='sospeso')return true;if(k.end&&k.end<TODAY)return false;if(!k.lessons||k.quota==='mese')return true;return credits(k).total>0;}
+const activeServices=c=>servicesOf(c).filter(serviceActive);
+const contractOf=c=>{if(!c)return null;const sv=servicesOf(c);if(!sv.length)return null;const cur=sv.find(k=>k.id===c.contract);const act=sv.filter(serviceActive);return (cur&&serviceActive(cur)&&cur)||act.find(k=>k.lessons)||act[0]||cur||sv[sv.length-1];};
+// pacchetto da cui scalare una lezione: quello attivo con lezioni, che scade per primo
+const svcPick=d=>{const id=(d&&d.id)||(S.ui.sheet&&S.ui.sheet.id);return S.db.contracts.find(x=>x.id===id)||contractOf(client(S.ui.page.id));};
+function balanceText(c){const sv=activeServices(c).filter(k=>k.lessons);if(!sv.length){const t=trialOf(c);return stageOf2(c)==='prova'?(trialUsed(c)?'Prova gratuita già usata':'Prova gratuita disponibile'):'Nessun pacchetto lezioni attivo';}
+ return sv.map(k=>{const cr=credits(k);return k.name+': '+cr.total+(k.quota==='mese'?' su '+cr.quota+' questo mese':' rimaste')+(k.end?' (scade '+fd(k.end)+')':'');}).join(' · ');}
+function ptService(c){return activeServices(c).filter(k=>k.lessons&&credits(k).total>0).sort((a,b)=>(a.end||'9')<(b.end||'9')?-1:1)[0]||null;}
 const programOf=c=>c&&c.program?S.db.programs.find(p=>p.id===c.program):null;
-function credits(k){let paid=0,gift=0;if(!k)return{paid:0,gift:0,total:0};k.mov.forEach(m=>{if(m.type==='omaggio')gift+=m.delta;else paid+=m.delta;});return{paid:paid,gift:gift,total:paid+gift};}
+function credits(k){let paid=0,gift=0;if(!k)return{paid:0,gift:0,total:0};
+ if(k.lessons&&k.quota==='mese'){let add=0,g=0,used=0;k.mov.forEach(m=>{if((m.date||'').slice(0,7)!==CM)return;if(m.delta>0){if(m.type==='omaggio')g+=m.delta;else add+=m.delta;}else used-=m.delta;});const tot=Math.max(0,(k.perMonth||0)+add+g-used);const gl=Math.max(0,g-used);return{paid:tot-gl,gift:gl,total:tot,month:true,used:used,quota:(k.perMonth||0)+add+g};}k.mov.forEach(m=>{if(m.type==='omaggio')gift+=m.delta;else paid+=m.delta;});return{paid:paid,gift:gift,total:paid+gift};}
 function instStatus(i){if(i.paid>=i.amount)return{k:'pagata',l:'Pagata',c:'good'};const d=diff(TODAY,i.due);if(i.paid>0&&d<0)return{k:'scaduta',l:'Parziale, scaduta',c:'crit'};if(i.paid>0)return{k:'parziale',l:'Acconto '+eur(i.paid),c:'warn'};if(d<0)return{k:'scaduta',l:'Scaduta',c:'crit'};if(d<=7)return{k:'scadenza',l:d===0?'Scade oggi':'Tra '+d+' gg',c:'warn'};return{k:'programma',l:'In programma',c:''};}
 function apptTitle(a){if(a.clientId){const c=client(a.clientId);return c?c.name:'Cliente';}return a.title||'Impegno';}
-const AT={pt:{l:'Lezione PT',v:'--c-pt'},free:{l:'Lezione di prova',v:'--c-free'},consulenza:{l:'Consulenza',v:'--c-cons'},corso:{l:'Corso',v:'--c-corso'},personale:{l:'Personale',v:'--c-pers'}};
+const AT={pt:{l:'Lezione PT',v:'--c-pt'},free:{l:'Prova gratuita',v:'--c-free'},consulenza:{l:'Consulenza',v:'--c-cons'},corso:{l:'Corso',v:'--c-corso'},personale:{l:'Personale',v:'--c-pers'}};
 const histOf=cid=>S.db.history.filter(h=>h.clientId===cid);
 function lastSetsFor(cid,exId){const h=histOf(cid);for(let i=h.length-1;i>=0;i--){if(h[i].sets[exId])return{date:h[i].date,sets:h[i].sets[exId]};}return null;}
 const sesMax=(h,ex)=>Math.max.apply(null,h.sets[ex].filter(s=>s.done).map(s=>+s.kg||0).concat([0]));
@@ -337,7 +376,7 @@ function risk(c){const k=contractOf(c);let sc=0;const why=[];
   if(k&&k.status==='attivo'){const de=diff(TODAY,k.end);if(de>=0&&de<=21){sc+=18;why.push('Il percorso finisce tra '+de+' giorni: proponi il rinnovo');}}
   if(k&&k.inst.some(i=>instStatus(i).k==='scaduta')){sc+=10;why.push('Una rata è scaduta');}}
  sc=Math.min(100,sc);return{sc:sc,lvl:sc>=50?'alto':sc>=25?'medio':'basso',why:why};}
-const riskList=()=>S.db.clients.map(c=>({c:c,r:risk(c)})).filter(x=>x.r.lvl!=='basso').sort((a,b)=>b.r.sc-a.r.sc);
+const riskList=()=>S.db.clients.filter(c=>stageOf2(c)==='attivo').map(c=>({c:c,r:risk(c)})).filter(x=>x.r.lvl!=='basso').sort((a,b)=>b.r.sc-a.r.sc);
 const riskChip=r=>r.lvl==='basso'?'':'<span class="chip '+(r.lvl==='alto'?'crit':'warn')+'">'+ic('alert',12)+' Rischio '+r.lvl+'</span>';
 function nudgeText(c){const n=c.name.split(' ')[0];const r=risk(c);
  if(c.status==='sospeso')return 'Ciao '+n+'! Come va? Volevo sapere come stai. Quando te la senti, ripartiamo con calma: anche un allenamento leggero conta.';
@@ -415,7 +454,7 @@ function prMedal(r,s){const map={1:['--t-gold','PR'],2:['--t-silver','2°'],3:['
 function attention(){
  const out=[];
  S.db.clients.forEach(c=>{
-  if(c.status!=='attivo')return;const k=contractOf(c);
+  if(c.status!=='attivo'||stageOf2(c)!=='attivo')return;const k=contractOf(c);
   if(k)k.inst.forEach(i=>{if(instStatus(i).k==='scaduta')out.push({c:c,lvl:3,chip:'crit',t:'Rata '+i.n+' scaduta il '+fd(i.due)});});
   if(!c.ob.scheda)out.push({c:c,lvl:2,chip:'warn',t:'Scheda da preparare'});
   if(!c.ob.foto)out.push({c:c,lvl:1,chip:'',t:'Foto e misure da fare'});
@@ -525,6 +564,8 @@ function vOggi(){
  h+='<section class="hero'+(sh?' night':'')+'">'+(sh?
    '<div class="row"><span class="pulse" aria-hidden="true"></span><div class="grow"><div class="k">Giornata in corso</div><h3>In palestra dalle '+sh.in+'</h3><p class="small muted" id="elapsed">'+dur((Date.now()-sh.ts)/60000)+' finora</p></div></div><button class="btn primary lg block" data-act="shift">'+ic('pause')+' Fine giornata</button>'
   :'<div><div class="k">Registro ore</div><h3>Pronta a iniziare?</h3><p class="small muted" style="margin-top:6px">Un tocco quando arrivi, uno quando esci: le ore si sommano da sole.</p></div><button class="btn primary lg block" data-act="shift">'+ic('play')+' Inizia giornata</button>')+'</section>';
+ {const es=S.db.clients.filter(needsOutcome),rn=S.db.clients.filter(c=>stageOf2(c)==='rinnovo'),ov=pays.filter(x=>x.st.k==='scaduta');
+  if(es.length||rn.length||ov.length)h+='<section class="stack">'+sec('Da sistemare')+'<div class="list">'+es.map(c=>'<button class="li" data-act="sheet" data-v="esito" data-id="'+c.id+'"><span class="av">'+esc(c.ini)+'</span><span class="grow"><span class="t">'+esc(c.name)+'</span><br><span class="s">Prova svolta: indica l\'esito</span></span>'+chev()+'</button>').join('')+rn.map(c=>'<button class="li" data-act="openClient" data-id="'+c.id+'"><span class="av">'+esc(c.ini)+'</span><span class="grow"><span class="t">'+esc(c.name)+'</span><br><span class="s">Pacchetto finito: in attesa di rinnovo</span></span>'+chev()+'</button>').join('')+ov.slice(0,5).map(x=>'<button class="li" data-act="payOpen" data-k="'+x.k.id+'" data-n="'+x.i.n+'"><span class="av">'+esc(x.c.ini)+'</span><span class="grow"><span class="t">'+esc(x.c.name)+' · '+eur(x.i.amount-x.i.paid)+'</span><br><span class="s">Rata scaduta il '+fd(x.i.due)+'</span></span><span class="chip warn">Scaduta</span></button>').join('')+'</div></section>';}
  h+='<section class="stack">'+sec('Oggi in agenda','<button class="lnk" data-act="tab" data-v="agenda">Settimana</button>')+(today.length?'<div class="list">'+today.map(apptRow).join('')+'</div>':empty('Nessun appuntamento oggi.'))+'</section>';
  {const ai=aiWeekly();if(ai.length)h+='<section class="aisum"><div class="row between" style="align-items:flex-start"><div class="row"><span class="aiico">'+ic('bell',20)+'</span><div><div class="k">Promemoria</div><h3>Da fare oggi</h3></div></div></div><ol>'+ai.map(x=>'<li><span class="n '+x.c+'">'+ic(x.ic,16)+'</span><div><p>'+x.t+'</p>'+x.a+'</div></li>').join('')+'</ol><p class="xs muted">Calcolato dai dati dell\'app.</p></section>';}
  if(ur.length)h+='<section class="stack">'+sec('Da leggere','<span class="chip">'+ur.length+'</span>')+'<div class="list">'+ur.slice(0,3).map(m=>{const c=client(m.clientId);return '<button class="li" data-act="readMsg" data-id="'+m.id+'"><span class="av">'+(c?c.ini:'?')+'</span><span class="grow"><span class="t">'+esc(c?c.name:'')+'</span><br><span class="s">'+esc(m.text)+'</span></span><span class="s num">'+fd(m.date)+'</span></button>';}).join('')+'</div></section>';
@@ -547,16 +588,20 @@ function apptRow(a){
 }
 
 function vClienti(){
- const q=S.ui.search.toLowerCase();const f=S.ui.cfilter;const sf=S.ui.csrc;
- const list=S.db.clients.filter(c=>(!q||c.name.toLowerCase().indexOf(q)>=0)&&(!sf||(sf==='none'?!c.src:c.src===sf))&&(f==='tutti'||(f==='attivi'&&c.status==='attivo')||(f==='sospesi'&&c.status==='sospeso')||(f==='completare'&&(!c.ob.q||!c.ob.foto||!c.ob.scheda))));
- let h='<div class="row between"><h1 class="h2">Clienti</h1><button class="btn sm primary" data-act="sheet" data-v="invite">'+ic('plus',16)+' Nuovo cliente</button></div>';
- h+='<input class="in" id="search" type="search" placeholder="Cerca per nome" value="'+esc(S.ui.search)+'" data-bind="search" aria-label="Cerca cliente">';
- h+='<div class="tabs" role="group" aria-label="Stato">'+[['tutti','Tutti'],['attivi','Attivi'],['completare','Da completare'],['sospesi','Sospesi']].map(x=>'<button aria-pressed="'+(f===x[0])+'" data-act="cfilter" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>';
- h+='<div class="tabs" role="group" aria-label="Provenienza"><button aria-pressed="'+(!sf)+'" data-act="csrc" data-v="">Ogni provenienza</button>'+SRCK.map(k=>'<button aria-pressed="'+(sf===k)+'" data-act="csrc" data-v="'+k+'"><span class="sw" style="background:var('+SRC[k].v+');border-radius:50%"></span>'+k+'</button>').join('')+'<button aria-pressed="'+(sf==='none')+'" data-act="csrc" data-v="none">Senza provenienza</button></div>';
- h+=list.length?'<div class="list">'+list.map(c=>{const k=contractOf(c);const cr=credits(k);const bs=badgeState(c.id).filter(b=>b.ok).length;
-   const ob=[['q','Questionario'],['foto','Foto'],['scheda','Scheda']].map(o=>'<span class="chip '+(c.ob[o[0]]?'good':'warn')+'">'+(c.ob[o[0]]?'✓ ':'')+o[1]+'</span>').join('');
-   return '<button class="li" data-act="openClient" data-id="'+c.id+'"><span class="av">'+c.ini+srcDot(c.src)+'</span><span class="grow stack" style="gap:5px"><span class="row between"><span class="t">'+esc(c.name)+'</span>'+(c.status==='sospeso'?'<span class="chip">Sospeso</span>':(k&&k.lessons?'<span class="small muted num">'+cr.total+' lezioni</span>':'<span class="small muted">Online</span>'))+'</span><span class="s">'+esc(k?k.name:'')+(c.src?' · '+c.src+(c.srcD?' ('+esc(c.srcD)+')':''):'')+'</span><span class="row wrap" style="gap:4px">'+ob+(bs?'<span class="chip pink">'+ic('trophy',12)+' '+bs+'</span>':'')+(c.src?'':'<span class="chip warn">Provenienza?</span>')+riskChip(risk(c))+'</span></span></button>';}).join('')+'</div>':empty('Nessun cliente con questi filtri.');
- if(S.db.invites.length)h+='<section class="stack">'+sec('Inviti inviati')+'<div class="list">'+S.db.invites.map(i=>'<div class="li"><span class="av">'+ic('send',16)+'</span><span class="grow"><span class="t">'+esc(i.name)+'</span><br><span class="s">'+esc(i.email)+' · '+fd(i.date)+(i.src?' · '+i.src:'')+'</span></span>'+invChip(i)+'</div>').join('')+'</div></section>';
+ const q=S.ui.search.toLowerCase().trim();const f=['attivi','prove','attesa','archivio','tutti'].indexOf(S.ui.cfilter)>=0?S.ui.cfilter:'attivi';
+ const grp=c=>{const st=stageOf2(c);return st==='attivo'?'attivi':st==='prova'?'prove':st==='archivio'?'archivio':'attesa';};
+ const cnt=k=>S.db.clients.filter(c=>k==='tutti'||grp(c)===k).length;
+ const list=S.db.clients.filter(c=>(f==='tutti'||grp(c)===f)&&(!q||(c.name+' '+(c.phone||'')+' '+(c.email||'')).toLowerCase().indexOf(q)>=0)).sort((a,b)=>a.name.localeCompare(b.name));
+ let h='<div class="row between"><h1 class="h2">Clienti</h1><button class="btn sm primary" data-act="sheet" data-v="invite">'+ic('plus',16)+' Nuovo contatto</button></div>';
+ const todo=S.db.clients.filter(needsOutcome);
+ if(todo.length)h+='<div class="card pink"><h3>Esito della prova da compilare</h3>'+todo.map(c=>'<div class="row between"><span>'+esc(c.name)+' <span class="xs muted">· prova del '+fd(trialOf(c).doneOn||trialOf(c).date)+'</span></span><button class="btn sm primary" data-act="sheet" data-v="esito" data-id="'+c.id+'">Compila</button></div>').join('')+'</div>';
+ h+='<input class="in" id="search" type="search" placeholder="Cerca per nome, telefono o email" value="'+esc(S.ui.search)+'" data-bind="search" aria-label="Cerca cliente">';
+ h+='<div class="tabs" role="group" aria-label="Stato">'+[['attivi','Attivi'],['prove','Prove'],['attesa','In attesa'],['archivio','Archivio'],['tutti','Tutti']].map(x=>'<button aria-pressed="'+(f===x[0])+'" data-act="cfilter" data-v="'+x[0]+'">'+x[1]+' <span class="xs muted">'+cnt(x[0])+'</span></button>').join('')+'</div>';
+ h+=list.length?'<div class="list">'+list.map(c=>{const st=stageOf2(c);const sv=activeServices(c);const t=trialOf(c);
+   let sub=st==='prova'?(t.status==='programmata'?'Prova '+fd(t.date):'Prova da programmare'):st==='decisione'?(needsOutcome(c)?'Esito prova da compilare':'Ci pensa · da ricontattare'):st==='rinnovo'?'Pacchetto terminato':st==='archivio'?(t.outcome==='no'?'Non interessato':'Archiviato'):sv.map(k=>k.lessons?(k.name+' · '+credits(k).total+(k.quota==='mese'?' questo mese':' lezioni')):k.name).join(' + ')||'Nessun servizio';
+   return '<button class="li" data-act="openClient" data-id="'+c.id+'"><span class="av">'+esc(c.ini)+srcDot(c.src)+'</span><span class="grow"><span class="row between"><span class="t">'+esc(c.name)+'</span><span class="chip '+STG[st].c+'">'+STG[st].l+'</span></span><span class="s">'+esc(sub)+' · '+(c.origin==='interno'?'Interno':'Esterno')+'</span></span></button>';}).join('')+'</div>':empty(f==='prove'?'Nessuna prova in corso. Tocca "Nuovo contatto" per inserirne una.':'Nessun cliente qui.');
+ const pend=S.db.invites.filter(i=>{const f2=REAL&&i.cid?AelisCloud.inviteInfo(i.cid):null;return !f2||!f2.linked;});
+ if(pend.length)h+='<section class="stack">'+sec('Inviti all\'app in attesa')+'<div class="list">'+pend.map(i=>'<div class="li"><span class="av">'+ic('send',16)+'</span><span class="grow"><span class="t">'+esc(i.name)+'</span><br><span class="s">'+esc(i.email||'senza email')+' · '+fd(i.date)+'</span></span>'+invChip(i)+'</div>').join('')+'</div></section>';
  return h;
 }
 
@@ -653,9 +698,11 @@ function appCard(c){
 function vCliente(){
  const c=client(S.ui.page.id);const k=contractOf(c);const cr=credits(k);const t=S.ui.ctab;
  let h=head(esc(c.name),esc(c.goal));
- h+='<div class="row wrap" style="gap:6px"><span class="chip '+(c.status==='attivo'?'good':'')+'">'+cap(c.status)+'</span><span class="chip">'+esc(c.level)+'</span><span class="chip">Dal '+fd(c.since)+'</span>'+srcChip(c.src)+(k&&k.lessons?'<span class="chip pink num">'+cr.total+' lezioni</span>':'')+'<span class="chip pink">'+ic('leaf',12)+' Fase '+stageOf(c.id).s.n+'</span>'+riskChip(risk(c))+'</div>';
- h+='<div class="tabs" role="group" aria-label="Sezioni dossier">'+[['profilo','Profilo'],['scheda','Scheda'],['allenamenti','Allenamenti'],['percorso','Percorso'],['check','Check e misure'],['note','Note']].map(x=>'<button aria-pressed="'+(t===x[0])+'" data-act="ctab" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>';
+ {const st=stageOf2(c);h+='<div class="row wrap" style="gap:8px"><button class="chip '+STG[st].c+'" data-act="sheet" data-v="stage" data-id="'+c.id+'" aria-label="Cambia stato">'+STG[st].l+' '+ic('edit',12)+'</button><span class="chip">'+(c.origin==='interno'?'Interno':'Esterno')+(c.gym?' · iscritto in palestra':'')+'</span>'+(c.phone?'<a class="btn sm" style="text-decoration:none" href="tel:'+esc(c.phone.replace(/[^\d+]/g,''))+'">'+ic('phone',14)+' Chiama</a>':'')+'<button class="btn sm" data-act="openChat" data-id="'+c.id+'">'+ic('msg',14)+' Chat</button></div>';}
+ h+='<div class="row wrap" style="gap:6px">'+(c.status==='sospeso'?'<span class="chip warn">Sospeso</span>':'')+'<span class="chip">'+esc(c.level)+'</span><span class="chip">Dal '+fd(c.since)+'</span>'+srcChip(c.src)+(k&&k.lessons?'<span class="chip pink num">'+cr.total+' lezioni</span>':'')+'<span class="chip pink">'+ic('leaf',12)+' Fase '+stageOf(c.id).s.n+'</span>'+riskChip(risk(c))+'</div>';
+ h+='<div class="tabs" role="group" aria-label="Sezioni dossier">'+[['profilo','Profilo'],['percorso','Servizi'],['scheda','Scheda'],['allenamenti','Allenamenti'],['check','Check e misure'],['note','Note']].map(x=>'<button aria-pressed="'+(t===x[0])+'" data-act="ctab" data-v="'+x[0]+'">'+x[1]+'</button>').join('')+'</div>';
  if(t==='profilo'){
+  h+=trialCard(c);
   {const r=risk(c);if(r.lvl!=='basso')h+='<div class="card" style="border-color:'+(r.lvl==='alto'?'var(--crit)':'var(--warn)')+'"><div class="row between"><h3>Rischio abbandono '+r.lvl+'</h3><span class="num small muted">'+r.sc+'/100</span></div><div class="meter"><i style="width:'+r.sc+'%;background:'+(r.lvl==='alto'?'var(--crit)':'var(--warn)')+'"></i></div><ul class="small" style="margin:0;padding-left:18px">'+r.why.map(w=>'<li>'+esc(w)+'</li>').join('')+'</ul><button class="btn sm primary" style="align-self:flex-start" data-act="sheet" data-v="nudge" data-id="'+c.id+'">'+ic('send',14)+' Prepara un messaggio</button></div>';}
   h+=srcPicker(c);
   const bs=badgeState(c.id).filter(b=>b.ok);
@@ -665,6 +712,7 @@ function vCliente(){
   h+='<section class="stack">'+sec('Avvio del percorso')+'<div class="list">'+[['q','Questionario iniziale','Compilato dal cliente'],['foto','Foto e misure iniziali','Alla prima lezione'],['scheda','Scheda assegnata','Dalla libreria esercizi']].map(o=>'<button class="li" data-act="obToggle" data-k="'+o[0]+'"><span class="tick" aria-pressed="'+(!!c.ob[o[0]])+'">'+ic('check',18)+'</span><span class="grow"><span class="t">'+o[1]+'</span><br><span class="s">'+o[2]+'</span></span></button>').join('')+'</div></section>';
   h+='<button class="btn sm" style="align-self:flex-start" data-act="sheet" data-v="clientEdit" data-id="'+c.id+'">'+ic('edit',16)+' Modifica dati</button>';
   h+=appCard(c);
+  if(c.log&&c.log.length)h+='<details class="card flat"><summary style="font-weight:650;cursor:pointer">Storico delle modifiche <span class="xs muted">'+c.log.length+'</span></summary><div class="list" style="margin-top:8px">'+c.log.slice(0,60).map(x=>'<div class="li"><span class="grow"><span>'+esc(x.text)+'</span><br><span class="s">'+fd(x.date)+'</span></span></div>').join('')+'</div></details>';
   if(c.answers.length)h+='<section class="stack">'+sec('Risposte al questionario')+'<div class="list">'+c.answers.map(a=>'<div class="li"><span class="grow"><span class="s">'+esc(a[0])+'</span><br><span>'+esc(a[1])+'</span></span></div>').join('')+'</div></section>';
  }
  if(t==='scheda'){
@@ -687,16 +735,13 @@ function vCliente(){
   }
  }
  if(t==='percorso'){
-  if(!k)h+=empty('Nessun percorso ancora: crealo qui, con prezzo, rate e lezioni.')+'<button class="btn primary lg block" data-act="sheet" data-v="newContract" data-id="'+c.id+'">'+ic('plus',18)+' Crea percorso</button>';
-  else{
-   h+='<div class="card"><div class="row between"><h3>'+esc(k.name)+'</h3><span class="chip '+(k.status==='attivo'?'good':'warn')+'">'+cap(k.status)+'</span></div><p class="small muted num">Dal '+fd(k.start)+' al '+fd(k.end)+(k.status==='sospeso'?' · sospeso dal '+fd(k.suspendedOn):'')+' · valore '+eur(k.price)+'</p>';
-   if(k.lessons){const used=k.mov.filter(m=>m.delta<0).reduce((s,m)=>s-m.delta,0);const tot=used+cr.total;h+='<div class="row" style="gap:16px">'+ring(tot?used/tot:0,96,10,null,'<text x="48" y="50" text-anchor="middle" font-family="Archivo,system-ui" font-weight="850" font-size="22" fill="var(--ink)">'+cr.total+'</text><text x="48" y="66" text-anchor="middle" font-size="10" fill="var(--muted)">rimaste</text>')+'<div class="stack" style="gap:4px"><p><b>'+used+'</b> lezioni svolte su '+tot+'</p><p class="small muted">'+cr.gift+' omaggio · '+cr.paid+' incluse</p><p class="xs muted">Le omaggio si usano per prime.</p></div></div>';}
-   h+='<div class="row wrap" style="gap:6px"><button class="btn sm" data-act="sheet" data-v="proroga">Proroga</button><button class="btn sm" data-act="suspend">'+(k.status==='sospeso'?'Riattiva':'Sospendi')+'</button>'+(k.lessons?'<button class="btn sm" data-act="sheet" data-v="rettifica">Rettifica lezioni</button>':'')+'<button class="btn sm" data-act="sheet" data-v="contractEdit" data-id="'+k.id+'">Modifica</button><button class="btn sm" data-act="sheet" data-v="newContract" data-id="'+c.id+'">Nuovo percorso</button></div></div>';
-   h+='<section class="stack">'+sec('Rate')+'<div class="list">'+k.inst.map(i=>{const st=instStatus(i);return '<button class="li" data-act="payOpen" data-k="'+k.id+'" data-n="'+i.n+'"><span class="grow"><span class="t num">Rata '+i.n+' · '+eur(i.amount)+'</span><br><span class="s">'+(i.paidOn?'Pagata il '+fd(i.paidOn)+(i.method?' · '+i.method:''):'Scadenza '+fd(i.due))+'</span></span><span class="chip '+st.c+'">'+st.l+'</span></button>';}).join('')+'</div></section>';
-   if(k.lessons)h+='<section class="stack">'+sec('Registro lezioni')+'<div class="list">'+k.mov.slice().reverse().map(m=>'<div class="li"><span class="chip '+(m.delta>0?'good':'')+' num" style="min-width:44px;justify-content:center">'+(m.delta>0?'+':'')+m.delta+'</span><span class="grow"><span>'+esc(m.reason)+'</span><br><span class="s">'+fd(m.date)+' · '+(m.type==='omaggio'?'omaggio':'incluse')+' · '+esc(m.by)+'</span></span></div>').join('')+'</div></section>';
-   if(k.adj.length)h+='<section class="stack">'+sec('Proroghe e sospensioni')+'<div class="list">'+k.adj.map(a=>'<div class="li"><span class="grow"><span>'+esc(a.reason)+'</span><br><span class="s">'+fd(a.date)+(a.neu?' · da '+fd(a.old)+' a '+fd(a.neu):'')+'</span></span></div>').join('')+'</div></section>';
-   h+=empty('Registro di incassi e lezioni. Ricevute e fatture restano dove le emetti oggi.');
-  }
+  const sv=servicesOf(c).slice().sort((a,b)=>(serviceActive(b)?1:0)-(serviceActive(a)?1:0)||(a.start<b.start?1:-1));
+  h+='<button class="btn primary block" data-act="sheet" data-v="newContract" data-id="'+c.id+'">'+ic('plus',18)+' Aggiungi servizio</button>';
+  if(!sv.length)h+=empty('Nessun servizio ancora: lezione singola, pacchetto mensile, plurimensile o solo scheda. Ognuno con prezzo, rate e lezioni propri.');
+  else{const act=sv.filter(serviceActive),past=sv.filter(k=>!serviceActive(k));
+   act.forEach(k=>{h+=serviceBlock(c,k);});
+   if(past.length)h+='<details class="card flat"><summary style="font-weight:650;cursor:pointer">Servizi terminati <span class="xs muted">'+past.length+'</span></summary><div class="stack" style="margin-top:10px">'+past.map(k=>serviceBlock(c,k)).join('')+'</div></details>';
+   h+=empty('Registro di incassi e lezioni. Ricevute e fatture restano dove le emetti oggi.');}
  }
  if(t==='check'){
   const ch=S.db.checks.filter(x=>x.clientId===c.id);
@@ -712,6 +757,20 @@ function vCliente(){
  return h;
 }
 
+function serviceBlock(c,k){const cr=credits(k);let h='';
+   h+='<div class="card"><div class="row between"><h3>'+esc(k.name)+'</h3><span class="chip '+(serviceActive(k)?(k.status==='sospeso'?'warn':'good'):'')+'">'+(serviceActive(k)?cap(k.status):'Terminato')+'</span></div><p class="xs muted">'+(KIND[k.kind]||'Pacchetto')+(k.lessons&&k.quota==='mese'?' · '+k.perMonth+' lezioni al mese, non cumulabili':'')+'</p><p class="small muted num">Dal '+fd(k.start)+' al '+fd(k.end)+(k.status==='sospeso'?' · sospeso dal '+fd(k.suspendedOn):'')+' · valore '+eur(k.price)+'</p>';
+ if(k.lessons){const used=k.mov.filter(m=>m.delta<0).reduce((s,m)=>s-m.delta,0);const tot=used+cr.total;h+='<div class="row" style="gap:16px">'+ring(tot?used/tot:0,96,10,null,'<text x="48" y="50" text-anchor="middle" font-family="Archivo,system-ui" font-weight="850" font-size="22" fill="var(--ink)">'+cr.total+'</text><text x="48" y="66" text-anchor="middle" font-size="10" fill="var(--muted)">rimaste</text>')+'<div class="stack" style="gap:4px"><p><b>'+used+'</b> lezioni svolte su '+tot+'</p><p class="small muted">'+cr.gift+' omaggio · '+cr.paid+' incluse</p><p class="xs muted">Le omaggio si usano per prime.</p></div></div>';}
+ h+='<div class="row wrap" style="gap:6px"><button class="btn sm" data-act="sheet" data-v="proroga" data-id="'+k.id+'">Proroga</button><button class="btn sm" data-act="suspend" data-id="'+k.id+'">'+(k.status==='sospeso'?'Riattiva':'Sospendi')+'</button>'+(k.lessons?'<button class="btn sm" data-act="sheet" data-v="rettifica" data-id="'+k.id+'">Rettifica lezioni</button>':'')+'<button class="btn sm" data-act="sheet" data-v="contractEdit" data-id="'+k.id+'">Modifica</button></div></div>';
+ h+='<section class="stack">'+sec('Rate')+'<div class="list">'+k.inst.map(i=>{const st=instStatus(i);return '<button class="li" data-act="payOpen" data-k="'+k.id+'" data-n="'+i.n+'"><span class="grow"><span class="t num">Rata '+i.n+' · '+eur(i.amount)+'</span><br><span class="s">'+(i.paidOn?'Pagata il '+fd(i.paidOn)+(i.method?' · '+i.method:''):'Scadenza '+fd(i.due))+'</span></span><span class="chip '+st.c+'">'+st.l+'</span></button>';}).join('')+'</div></section>';
+ if(k.lessons)h+='<section class="stack">'+sec('Registro lezioni')+'<div class="list">'+k.mov.slice().reverse().map(m=>'<div class="li"><span class="chip '+(m.delta>0?'good':'')+' num" style="min-width:44px;justify-content:center">'+(m.delta>0?'+':'')+m.delta+'</span><span class="grow"><span>'+esc(m.reason)+'</span><br><span class="s">'+fd(m.date)+' · '+(m.type==='omaggio'?'omaggio':'incluse')+' · '+esc(m.by)+'</span></span></div>').join('')+'</div></section>';
+ if(k.adj.length)h+='<section class="stack">'+sec('Proroghe e sospensioni')+'<div class="list">'+k.adj.map(a=>'<div class="li"><span class="grow"><span>'+esc(a.reason)+'</span><br><span class="s">'+fd(a.date)+(a.neu?' · da '+fd(a.old)+' a '+fd(a.neu):'')+'</span></span></div>').join('')+'</div></section>';
+  return h;}
+function trialCard(c){const t=trialOf(c);const st=stageOf2(c);
+ if(needsOutcome(c))return '<div class="card pink"><h3>Esito della prova</h3><p class="small">Prova gratuita svolta il '+fd(t.doneOn)+'. Com\'è andata?</p><button class="btn primary block" data-act="sheet" data-v="esito" data-id="'+c.id+'">Indica l\'esito</button></div>';
+ if(t.status==='programmata'){const a=S.db.appts.find(x=>x.id===t.apptId);return '<div class="card"><div class="row between"><h3>Prova gratuita</h3><span class="chip warn">Programmata</span></div><p class="small">'+(a?cap(fl(a.date))+' alle '+a.time+(a.prov?' · provvisoria':''):fd(t.date))+'</p>'+(a?'<button class="btn sm" style="align-self:flex-start" data-act="apptOpen" data-id="'+a.id+'">Apri appuntamento</button>':'')+'</div>';}
+ if(t.status==='svolta')return st==='prova'||st==='decisione'?'<div class="card flat"><p class="small">Prova gratuita già usata il '+fd(t.doneOn)+(t.outcome?' · esito: '+OUTC[t.outcome]:'')+'. Ne spetta una sola per persona.</p></div>':'';
+ if(st==='prova'||st==='decisione'||st==='archivio')return '<div class="card flat"><div class="row between"><h3>Prova gratuita</h3><span class="chip good">Disponibile</span></div>'+(t.lastCancel?'<p class="xs muted">L\'ultima, del '+fd(t.lastCancel)+', è stata annullata: resta disponibile.</p>':'')+'<button class="btn sm primary" style="align-self:flex-start" data-act="trialNew" data-id="'+c.id+'">Programma la prova</button></div>';
+ return '';}
 function vEditProg(){
  const c=client(S.ui.page.id);const e=S.ui.editProg;
  let h=head('Scheda di '+esc(c.name.split(' ')[0]),'Bozza · versione '+e.version);
@@ -759,7 +818,7 @@ function vNumeri(){
  return h;
 }
 function nPanoramica(){
- const act=S.db.clients.filter(c=>c.status==='attivo').length;const newOct=S.db.clients.filter(c=>(c.since||'').slice(0,7)===CM).length;
+ const act=S.db.clients.filter(c=>stageOf2(c)==='attivo').length;const newOct=S.db.clients.filter(c=>(c.since||'').slice(0,7)===CM).length;
  const wk=weeklyPT();const last=wk[wk.length-1].pt,prev=wk[wk.length-2].pt;
  const curW=monday(TODAY);const curDone=S.db.appts.filter(a=>a.type==='pt'&&a.date>=curW&&a.status==='svolto').length;const curPlan=S.db.appts.filter(a=>a.type==='pt'&&a.date>=curW&&a.date<addDays(curW,7)&&a.status!=='annullato').length;
  const oct=inMonth(CM,'in'),sep=inMonth(PM,'in');
@@ -776,10 +835,10 @@ function nPanoramica(){
 }
 function funnelFor(src,since){
  const inP=d=>!since||d>=since;
- const leads=S.db.leads.filter(l=>(!src||l.src===src)&&inP(l.contacted));const cl=S.db.clients.filter(c=>(!src||c.src===src)&&inP(c.since));
- const contatti=leads.length+cl.length;const prove=leads.filter(l=>l.free&&(l.stage==='svolta'||l.stage==='perso'||l.stage==='cliente')).length+cl.length;const clienti=cl.length+leads.filter(l=>l.stage==='cliente').length;
- const valore=cl.reduce((s,c)=>{const k=contractOf(c);return s+(k?k.price:0);},0);
- return{contatti:contatti,prove:prove,clienti:clienti,valore:valore,cl:cl};
+ const cl=S.db.clients.filter(c=>(!src||c.src===src)&&inP(c.since));
+ const prove=cl.filter(c=>trialUsed(c)||servicesOf(c).length).length;const conv=cl.filter(c=>servicesOf(c).length);
+ const valore=conv.reduce((s,c)=>s+servicesOf(c).reduce((t,k)=>t+(k.price||0),0),0);
+ return{contatti:cl.length,prove:prove,clienti:conv.length,valore:valore,cl:conv};
 }
 function nAcquisizione(){
  const per=S.ui.aperiod;const since=per==='30'?addDays(TODAY,-30):per==='90'?addDays(TODAY,-90):null;const sel=S.ui.asrc;
@@ -802,7 +861,7 @@ function nAcquisizione(){
  if(dk.length)h+='<div class="card"><h3>Nel dettaglio</h3>'+dk.map(k=>'<div class="row"><span class="small grow">'+esc(k)+'</span><span class="bar" style="width:40%"><i style="width:'+pct(det[k],det[dk[0]])+'%;background:var('+SRC[k.split(' · ')[0]].v+')"></i></span><span class="num small" style="width:18px;text-align:right">'+det[k]+'</span></div>').join('')+'</div>';
  const miss=S.db.clients.filter(c=>!c.src);
  if(miss.length)h+='<div class="card pink"><h3>'+miss.length+' cliente senza provenienza</h3>'+miss.map(c=>'<div class="stack" style="gap:8px"><p class="small"><b>'+esc(c.name)+'</b>: da dove è arrivato?</p><div class="segbar">'+SRCK.map(k=>'<button data-act="quickSrc" data-id="'+c.id+'" data-v="'+k+'">'+k+'</button>').join('')+'</div></div>').join('')+'</div>';
- h+='<button class="btn" data-act="open" data-v="contatti">'+ic('target',16)+' Vai ai contatti e alle prove</button>';
+ h+='<button class="btn" data-act="cfilter" data-v="prove" data-go="1">'+ic('target',16)+' Vai alle prove in corso</button>';
  return h;
 }
 function nIncassi(){
@@ -832,20 +891,13 @@ function accountHTML(){const cl=S.ui.role==='client';const ex='<button class="li
  const pl=pushLabel();const nt='<button class="li" data-act="pushToggle"><span class="av">'+ic('bell',18)+'</span><span class="grow"><span class="t">'+pl[0]+'</span><br><span class="s">'+pl[1]+'</span></span></button>';
  return '<section class="stack">'+sec('Account')+'<div class="list">'+nt+ex+'<button class="li" data-act="changePw"><span class="av">'+ic('lock',18)+'</span><span class="grow"><span class="t">Cambia password</span></span>'+chev()+'</button><button class="li" data-act="logout"><span class="av">'+ic('out',18)+'</span><span class="grow"><span class="t">Esci</span><br><span class="s">Da questo dispositivo</span></span></button></div></section><p class="xs muted" style="text-align:center"><a href="privacy.html" target="_blank" rel="noopener">Informativa privacy</a></p>';}
 function vAltro(){
- const nl=S.db.leads.filter(l=>l.stage==='contattare'||l.stage==='svolta').length;
- const items=[['chats','msg','Messaggi','Chat private con i clienti',chatUnreadTotal()?'<span class="chip pink">'+chatUnreadTotal()+'</span>':''],['calendario','cal','Google Calendar','Le lezioni nel tuo calendario',''],['contatti','target','Contatti e lezioni di prova','Da contattare → prova → cliente',nl?'<span class="chip pink">'+nl+'</span>':''],['libreria','book','Libreria esercizi',EX.length+' esercizi con note e muscoli',''],['ore','clock','Registro ore','Ingressi, uscite e totali',''],['automazioni','bolt','Automazioni','Messaggi e promemoria che partono da soli',ph('P1')],['sfide','trophy','Sfide di gruppo','Crea sfide e guarda le classifiche',ph('P2')],['programmati','send','Messaggi programmati','Scritti da te, inviati quando decidi',ph('P1')],['booking','link','Prenotazioni da Instagram','Anteprima della pagina pubblica',ph('Subito')],['info','info','Info prototipo','Cosa è simulato, ripristina i dati','']];
+ const nl=S.db.clients.filter(c=>stageOf2(c)==='prova'||needsOutcome(c)).length;
+ const items=[['chats','msg','Messaggi','Chat private con i clienti',chatUnreadTotal()?'<span class="chip pink">'+chatUnreadTotal()+'</span>':''],['calendario','cal','Google Calendar','Le lezioni nel tuo calendario',''],['contatti','target','Prove gratuite','Contatti in prova e in attesa di decisione',nl?'<span class="chip pink">'+nl+'</span>':''],['libreria','book','Libreria esercizi',EX.length+' esercizi con note e muscoli',''],['ore','clock','Registro ore','Ingressi, uscite e totali',''],['automazioni','bolt','Automazioni','Messaggi e promemoria che partono da soli',ph('P1')],['sfide','trophy','Sfide di gruppo','Crea sfide e guarda le classifiche',ph('P2')],['programmati','send','Messaggi programmati','Scritti da te, inviati quando decidi',ph('P1')],['booking','link','Prenotazioni da Instagram','Anteprima della pagina pubblica',ph('Subito')],['info','info','Info prototipo','Cosa è simulato, ripristina i dati','']];
  const HIDE=['info','booking','automazioni'];
  return '<h1 class="h2">Altro</h1><div class="list">'+items.filter(x=>!REAL||HIDE.indexOf(x[0])<0).map(x=>'<button class="li" data-act="open" data-v="'+x[0]+'"><span class="av">'+ic(x[1],18)+'</span><span class="grow"><span class="t">'+x[2]+'</span><br><span class="s">'+x[3]+'</span></span>'+x[4]+chev()+'</button>').join('')+'</div>'+accountHTML();
 }
 const STAGES=[['contattare','Da contattare'],['fissata','Prova fissata'],['svolta','Prova svolta'],['cliente','Diventati clienti'],['perso','Persi']];
-function vContatti(){
- const src=S.ui.lsrc;const ls=S.db.leads.filter(l=>src==='tutti'||l.src===src);
- let h=head('Contatti','Dal primo contatto alla lezione di prova');
- h+='<div class="grid3">'+kpi(ls.filter(l=>l.stage==='contattare').length,'Da contattare')+kpi(ls.filter(l=>l.stage==='fissata').length,'Prove fissate')+kpi(ls.filter(l=>l.stage==='svolta').length,'Da chiudere')+'</div>';
- h+='<div class="row between" style="gap:8px"><div class="tabs" role="group" aria-label="Provenienza">'+['tutti'].concat(SRCK).map(x=>'<button aria-pressed="'+(src===x)+'" data-act="lsrc" data-v="'+x+'">'+(x==='tutti'?'Tutti':'<span class="sw" style="background:var('+SRC[x].v+');border-radius:50%"></span>'+x)+'</button>').join('')+'</div><button class="btn sm primary" data-act="sheet" data-v="newLead" aria-label="Nuovo contatto">'+ic('plus',16)+'</button></div>';
- h+=STAGES.map((st,si)=>{const g=ls.filter(l=>l.stage===st[0]);if(!g.length&&si>2)return '';return '<section class="stack">'+sec(st[1],'<span class="chip">'+g.length+'</span>')+(g.length?'<div class="list">'+g.map(l=>'<div class="li" style="align-items:flex-start"><span class="av">'+l.name.split(' ').map(x=>x[0]).join('')+srcDot(l.src)+'</span><span class="grow stack" style="gap:4px"><span class="row between"><span class="t">'+esc(l.name)+'</span><span class="xs muted">'+esc(l.src)+(l.srcD?' · '+esc(l.srcD):'')+'</span></span><span class="s">'+esc(l.next)+(l.free?' · prova '+fd(l.free.slice(0,10))+' '+l.free.slice(11):'')+'</span>'+(l.interest?'<span class="s">Interesse: '+esc(l.interest)+'</span>':'')+(si<3?'<span class="row wrap" style="gap:6px;margin-top:4px">'+(si===0?'<button class="btn sm" data-act="leadFix" data-id="'+l.id+'">Fissa prova</button>':'')+(si===1?'<button class="btn sm" data-act="leadMove" data-id="'+l.id+'" data-v="svolta">Prova svolta</button>':'')+(si===2?'<button class="btn sm primary" data-act="leadConvert" data-id="'+l.id+'">Diventa cliente</button>':'')+'<button class="btn sm ghost" data-act="leadMove" data-id="'+l.id+'" data-v="perso">Perso</button></span>':'')+'</span></div>').join('')+'</div>':'<p class="small muted">Nessuno.</p>')+'</section>';}).join('');
- return h;
-}
+function vContatti(){return vClienti();}
 function vLibreria(){
  const q=(S.ui.exq||'').toLowerCase().trim(),sz=S.ui.exsez||'',ds=S.ui.exdist||'';
  const all=allEx();
@@ -1063,7 +1115,7 @@ function cProgressi(){
  return h;
 }
 function cPercorso(){
- const c=me();const k=contractOf(c);const cr=credits(k);
+ const c=me();const k=contractOf(c);const cr=credits(k);const others=activeServices(c).filter(x=>!k||x.id!==k.id);
  let h='<h1 class="h2">Il mio percorso</h1>';
  if(!k)return h+empty('Nessun percorso attivo per ora: Aelis lo prepara dopo il primo incontro.')+'<button class="btn primary lg block" data-act="sheet" data-v="requestLesson">'+ic('cal',18)+' Richiedi una lezione</button>';
  const elapsed=Math.max(0,diff(k.start,TODAY)),total=Math.max(1,diff(k.start,k.end));
@@ -1071,6 +1123,7 @@ function cPercorso(){
  const next=S.db.appts.filter(a=>a.clientId===c.id&&a.date>=TODAY&&a.status!=='annullato').sort((a,b)=>(a.date+a.time)<(b.date+b.time)?-1:1).slice(0,4);
  h+='<section class="stack">'+sec('Prossime lezioni','<button class="lnk" data-act="sheet" data-v="requestLesson">Richiedi</button>')+(next.length?'<div class="list">'+next.map(a=>'<div class="li"><span class="av">'+ic('cal',18)+'</span><span class="grow"><span class="t">'+cap(fl(a.date))+'</span><br><span class="s">'+a.time+' · '+a.dur+' min</span></span>'+(a.status==='attesa'?'<span class="chip warn">In attesa</span>':'')+'</div>').join('')+'</div>':empty('Nessuna lezione in programma.'))+'</section>';
  h+='<section class="stack">'+sec('Le mie rate')+'<div class="list">'+k.inst.map(i=>{const st=instStatus(i);const lab=st.k==='pagata'?'Pagata':st.k==='scaduta'||st.k==='scadenza'?'Da pagare':st.k==='parziale'?'Acconto versato':'In programma';const cc=st.k==='pagata'?'good':st.k==='programma'?'':'warn';return '<div class="li"><span class="tick" aria-pressed="'+(st.k==='pagata')+'" style="pointer-events:none">'+ic('check',16)+'</span><span class="grow"><span class="t">Rata '+i.n+'</span><br><span class="s">'+(i.paidOn?'il '+fd(i.paidOn):'entro il '+fd(i.due))+'</span></span><span class="chip '+cc+'">'+lab+'</span></div>';}).join('')+'</div>';
+ if(others.length)h+='<section class="stack">'+sec('Altri servizi attivi')+'<div class="list">'+others.map(x=>'<div class="li"><span class="av">'+ic('wallet',18)+'</span><span class="grow"><span class="t">'+esc(x.name)+'</span><br><span class="s">'+(x.lessons?credits(x).total+(x.quota==='mese'?' lezioni questo mese':' lezioni rimaste')+' · ':'')+(x.end?'fino al '+fd(x.end):'')+'</span></span></div>').join('')+'</div></section>';
  h+=S.ui.showAmounts?'<div class="card"><p class="xs muted">Dettagli economici</p><table class="tbl"><tbody><tr><td>Valore del percorso</td><td class="r">'+eur(k.price)+'</td></tr>'+k.inst.map(i=>'<tr><td>Rata '+i.n+'</td><td class="r">'+eur(i.amount)+'</td></tr>').join('')+'</tbody></table></div>':'<button class="btn sm ghost" style="align-self:flex-start" data-act="showAmounts">Mostra i dettagli economici</button>';
  return h+'</section>';
 }
@@ -1146,14 +1199,16 @@ function srcFields(pre){return '<label class="f">Da dove arriva<select class="in
 function sheetHTML(){
  const s=S.ui.sheet;if(!s)return '';let b='';
  if(s.kind==='appt'){
-  const a=S.db.appts.find(x=>x.id===s.id);const m=AT[a.type];const c=a.clientId?client(a.clientId):null;const k=contractOf(c);const cr=credits(k);
-  b='<h2>'+esc(apptTitle(a))+'</h2><p class="muted">'+cap(fl(a.date))+' · '+a.time+' · '+a.dur+' min · '+m.l+'</p>';
-  if(c&&k&&k.lessons)b+=empty('Lezioni rimaste: '+cr.total+(cr.gift?' ('+cr.gift+' omaggio, usate per prime)':'')+'. Si scala solo quando segni la lezione come svolta.');
+  const a=S.db.appts.find(x=>x.id===s.id);const m=AT[a.type];const c=a.clientId?client(a.clientId):null;
+  b='<h2>'+esc(apptTitle(a))+'</h2><p class="muted">'+cap(fl(a.date))+' · '+a.time+' · '+a.dur+' min · '+m.l+(a.prov?' · <b>provvisorio</b>':'')+(a.seriesId?' · ricorrente':'')+'</p>';
+  if(c)b+=empty(esc(balanceText(c))+'. Si scala solo quando segni la lezione come svolta.');
   if(a.status==='previsto'||a.status==='attesa'){
-   b+='<button class="btn primary lg block" data-act="apptDone" data-id="'+a.id+'">'+ic('check',18)+' Segna come svolta</button>';
-   b+=(c&&k&&k.lessons)?'<div class="grid2"><button class="btn" data-act="apptCancel" data-id="'+a.id+'" data-v="0">Annulla, non scalare</button><button class="btn" data-act="apptCancel" data-id="'+a.id+'" data-v="1">Annulla e scala</button></div><p class="xs muted">Le cancellazioni le decidi caso per caso.</p>':'<button class="btn block" data-act="apptCancel" data-id="'+a.id+'" data-v="0">Annulla appuntamento</button>';
-   if(c)b+='<button class="btn ghost block" data-act="openClient" data-id="'+c.id+'">Apri il dossier di '+esc(c.name.split(' ')[0])+'</button>';
-  }else b+='<span class="chip '+(a.status==='svolto'?'good':'')+'" style="align-self:flex-start">'+cap(a.status)+'</span>';
+   if(a.prov)b+='<button class="btn block" data-act="apptConfirm" data-id="'+a.id+'">Conferma appuntamento</button>';
+   b+='<button class="btn primary lg block" data-act="apptDone" data-id="'+a.id+'">'+ic('check',18)+' '+(a.type==='free'?'Prova svolta':'Segna come svolta')+'</button>';
+   b+=c?'<div class="grid2"><button class="btn" data-act="apptCancel" data-id="'+a.id+'" data-v="coach">Annullo io</button><button class="btn" data-act="apptCancel" data-id="'+a.id+'" data-v="cliente">Annulla il cliente</button></div>':'<button class="btn block" data-act="apptCancel" data-id="'+a.id+'" data-v="coach">Annulla appuntamento</button>';
+   b+='<details class="card flat"><summary class="small" style="font-weight:650;cursor:pointer">Sposta o cambia durata (solo questo)</summary><div class="grid2" style="margin-top:10px"><label class="f">Giorno<input class="in" id="ae-date" type="date" value="'+a.date+'"></label><label class="f">Ora<input class="in" id="ae-time" type="time" value="'+a.time+'"></label></div><label class="f">Durata (min)<input class="in" id="ae-dur" inputmode="numeric" value="'+a.dur+'"></label><button class="btn block" data-act="apptEdit" data-id="'+a.id+'">Salva modifiche</button></details>';
+   if(c)b+='<button class="btn ghost block" data-act="openClient" data-id="'+c.id+'">Apri la scheda di '+esc(c.first||c.name.split(' ')[0])+'</button>';
+  }else b+='<span class="chip '+(a.status==='svolto'?'good':'')+'" style="align-self:flex-start">'+cap(a.status)+(a.cancelBy?' da '+(a.cancelBy==='coach'?'te':'cliente'):'')+(a.outcome?' · '+esc(a.outcome):'')+'</span>';
  }
  if(s.kind==='pay'){
   const k=S.db.contracts.find(x=>x.id===s.k);const i=k.inst.find(x=>x.n===+s.n);const c=client(k.clientId);const pays=instPays(i);const rest=Math.max(0,Math.round((i.amount-i.paid)*100)/100);
@@ -1187,20 +1242,41 @@ function sheetHTML(){
  if(s.kind==='inviteLink'){const fn=String(s.name||'').split(' ')[0];const msg='Ciao '+fn+'! Ecco il tuo accesso personale ad AELIS Training: '+s.link+' (vale 14 giorni). A presto, Aelis';
   b='<h2>Invito pronto</h2><p class="muted">Manda questo link a '+esc(s.name)+'. È personale, vale 14 giorni e si usa una volta sola: crea il suo account con la sua email.</p><input class="in linkbox" id="il-url" readonly value="'+esc(s.link)+'" aria-label="Link d\'invito"><button class="btn primary lg block" data-act="copyLink">Copia il link</button><div class="grid2"><a class="btn" href="https://wa.me/?text='+encodeURIComponent(msg)+'" target="_blank" rel="noopener">WhatsApp</a><a class="btn" href="mailto:'+encodeURIComponent(s.email||'')+'?subject='+encodeURIComponent('Il tuo accesso ad AELIS Training')+'&body='+encodeURIComponent(msg)+'">Email</a></div><p class="xs muted">Non condividere il link nei gruppi: chi lo apre per primo può usarlo.</p>';}
  if(s.kind==='delClient'){const c=client(s.id);b='<h2>Eliminare '+esc(c?c.name:'')+'?</h2><p class="muted">Si cancellano per sempre scheda, allenamenti, check, misure, pagamenti e l\'accesso all\'app. Non si può annullare.</p><label class="f">Per confermare scrivi il nome: <b>'+esc(c?c.name:'')+'</b><input class="in" id="dl-name" autocomplete="off"></label><button class="btn danger lg block" data-act="delClient">Elimina definitivamente</button>';}
- if(s.kind==='invite')b='<h2>Nuovo cliente</h2><p class="muted">Crealo subito: puoi già inserire percorso, pagamenti, appuntamenti e scheda. L\'invito all\'app lo mandi quando vuoi: troverà tutto pronto.</p><label class="f">Nome e cognome<input class="in" id="inv-name" maxlength="60" value="'+esc(s.name||'')+'"></label><label class="f">Email (facoltativa)<input class="in" id="inv-mail" type="email" inputmode="email" placeholder="Se non la sai, la scriverà lui all\'iscrizione"></label><label class="f">Obiettivo (facoltativo)<input class="in" id="inv-goal" maxlength="120"></label>'+srcFields('inv')+'<button class="btn primary lg block" data-act="inviteSend" data-v="save">Salva cliente</button><button class="btn block" data-act="inviteSend" data-v="invite">'+ic('send',18)+' Salva e crea l\'invito all\'app</button>';
+ if(s.kind==='invite'){const o=S.ui.nc||(S.ui.nc={origin:'esterno'});const ext=o.origin==='esterno'&&!o.already;
+  b='<h2>Nuovo contatto</h2><p class="muted small">Una sola scheda per persona: resta la stessa da contatto a cliente, rinnovi e archivio.</p>'+
+   '<div class="chipset" role="group" aria-label="Provenienza"><button type="button" aria-pressed="'+ext+'" data-act="ncOrigin" data-v="esterno">Esterno · non iscritto in palestra</button><button type="button" aria-pressed="'+(!ext)+'" data-act="ncOrigin" data-v="interno">Interno · già iscritto</button></div>'+
+   '<div class="grid2"><label class="f">Nome<input class="in" id="inv-first" maxlength="40" value="'+esc(o.first||s.name||'')+'"></label><label class="f">Cognome<input class="in" id="inv-last" maxlength="40" value="'+esc(o.last||'')+'"></label></div>'+
+   '<label class="row small" style="min-height:44px"><input type="checkbox" id="inv-already"'+(o.already?' checked':'')+'> È già un cliente (niente prova gratuita)</label>'+
+   '<label class="f">Telefono'+(ext?'':' (facoltativo)')+'<input class="in" id="inv-phone" type="tel" inputmode="tel" maxlength="20" value="'+esc(o.phone||'')+'"></label>'+
+   '<label class="f">Email (facoltativa)<input class="in" id="inv-mail" type="email" inputmode="email" value="'+esc(o.email||'')+'"></label>'+
+   (o.already?'':'<div class="grid2"><label class="f">Data della prova'+(ext?'':' (facoltativa)')+'<input class="in" id="inv-tdate" type="date" value="'+esc(o.tdate||'')+'"></label><label class="f">Ora<input class="in" id="inv-ttime" type="time" value="'+esc(o.ttime||'18:00')+'"></label></div>'+
+   '<div class="grid2"><label class="f">Durata (min)<input class="in" id="inv-tdur" inputmode="numeric" value="'+esc(o.tdur||60)+'"></label><label class="row small" style="align-self:end;min-height:44px"><input type="checkbox" id="inv-prov"'+(o.prov?' checked':'')+'> Provvisoria</label></div>')+
+   srcFields('inv')+'<button class="btn primary lg block" data-act="inviteSend" data-v="save">Salva</button>'+(REAL?'<button class="btn block" data-act="inviteSend" data-v="invite">Salva e crea l\'invito all\'app</button>':'')+'<p class="xs muted">L\'invito all\'app puoi crearlo anche dopo, dalla scheda del cliente.</p>';}
+ if(s.kind==='dup'){const c=client(s.id);b='<h2>Questa persona c\'è già</h2><p class="muted">'+esc(c.name)+(c.phone?' · '+esc(c.phone):'')+' è già in anagrafica ('+STG[stageOf2(c)].l+'). Una persona ha una sola scheda: così la prova gratuita resta una sola.</p>'+(trialUsed(c)?'<p class="small"><b>Prova gratuita già usata il '+fd(trialOf(c).doneOn)+'.</b></p>':'')+'<button class="btn primary lg block" data-act="openClient" data-id="'+c.id+'">Apri la scheda esistente</button>';}
+ if(s.kind==='esito'){const c=client(s.id);b='<h2>Com\'è andata la prova di '+esc(c.first||c.name.split(' ')[0])+'?</h2><p class="muted small">Scegli tu l\'esito: l\'app non lo decide da sola.</p><button class="btn primary lg block" data-act="outcome" data-id="'+c.id+'" data-v="percorso">Inizia un percorso</button><button class="btn lg block" data-act="outcome" data-id="'+c.id+'" data-v="pensa">Ci pensa · da ricontattare</button><button class="btn lg block" data-act="outcome" data-id="'+c.id+'" data-v="no">Non interessato · in archivio</button>';}
+ if(s.kind==='stage'){const c=client(s.id);b='<h2>Stato di '+esc(c.name)+'</h2><p class="muted small">Lo cambi solo tu. L\'archivio non cancella niente.</p>'+['attivo','decisione','rinnovo','prova','archivio'].map(k=>'<button class="btn block'+(stageOf2(c)===k?' primary':'')+'" data-act="setStage" data-id="'+c.id+'" data-v="'+k+'">'+STG[k].l+'</button>').join('');}
+ if(s.kind==='cancelCli'){const a=S.db.appts.find(x=>x.id===s.id);const c=client(a.clientId);const k=ptService(c);b='<h2>Ha annullato '+esc(c?c.first||c.name:'il cliente')+'</h2><p class="muted small">Decidi tu: recuperarla più avanti o scalarla dal pacchetto'+(k?' ('+credits(k).total+' rimaste)':'')+'.</p><button class="btn primary lg block" data-act="cancelCli" data-id="'+a.id+'" data-v="recupera">Da recuperare</button><button class="btn lg block" data-act="cancelCli" data-id="'+a.id+'" data-v="scala"'+(k?'':' disabled')+'>Scala 1 lezione</button>';}
  if(s.kind==='clientEdit'){const c=client(s.id);const f=REAL&&AelisCloud.inviteInfo(c.id);const locked=!!(f&&f.linked);
-  b='<h2>Dati di '+esc(c.name.split(' ')[0])+'</h2><label class="f">Nome e cognome<input class="in" id="ce-name" maxlength="60" value="'+esc(c.name)+'"></label><label class="f">'+(locked?'Email (la cambia il cliente dal suo account)':'Email (facoltativa)')+'<input class="in" id="ce-mail" type="email" inputmode="email" value="'+esc(c.email||'')+'"'+(locked?' readonly':'')+'></label><div class="grid2"><label class="f">Età<input class="in" id="ce-age" inputmode="numeric" maxlength="3" value="'+esc(c.age||'')+'"></label><label class="f">Livello<select class="in" id="ce-level">'+['Principiante','Intermedio','Avanzato'].map(l=>'<option'+(c.level===l?' selected':'')+'>'+l+'</option>').join('')+'</select></label></div><label class="f">Obiettivo<input class="in" id="ce-goal" maxlength="120" value="'+esc(c.goal||'')+'"></label><label class="f">Disponibilità<input class="in" id="ce-avail" maxlength="120" value="'+esc(c.avail||'')+'" placeholder="Es. lun e gio sera"></label><label class="f">Limitazioni e anamnesi (le vedi solo tu)<textarea class="in" id="ce-limits" maxlength="600">'+esc(c.limits||'')+'</textarea></label><button class="btn primary lg block" data-act="clientEditSave" data-id="'+c.id+'">Salva</button>';}
- if(s.kind==='newContract'){const c=client(s.id);const p=S.ui.nk||(S.ui.nk={type:'pack'});
-  const T={pack:['Pacchetto lezioni','Pacchetto 8 lezioni',8,8],path:['Percorso con lezioni','Percorso 3 mesi · 2 lezioni a settimana',24,13],online:['Scheda online','Scheda online 8 settimane',0,8]};
-  b='<h2>Nuovo percorso per '+esc(c.name.split(' ')[0])+'</h2><div class="chipset" role="group" aria-label="Tipo">'+Object.keys(T).map(k=>'<button type="button" aria-pressed="'+(p.type===k)+'" data-act="nkType" data-v="'+k+'">'+T[k][0]+'</button>').join('')+'</div>'+
-   '<label class="f">Nome<input class="in" id="nk-name" maxlength="80" value="'+esc(T[p.type][1])+'"></label>'+
-   '<div class="grid2"><label class="f">Inizio<input class="in" id="nk-start" type="date" value="'+TODAY+'"></label><label class="f">Durata (settimane)<input class="in" id="nk-weeks" inputmode="numeric" value="'+T[p.type][3]+'"></label></div>'+
-   '<div class="grid2"><label class="f">Prezzo totale (€)<input class="in" id="nk-price" inputmode="decimal" placeholder="0"></label><label class="f">Rate mensili<select class="in" id="nk-n">'+[1,2,3,4,5,6,8,10,12].map(n=>'<option>'+n+'</option>').join('')+'</select></label></div>'+
-   (p.type!=='online'?'<div class="grid2"><label class="f">Lezioni incluse<input class="in" id="nk-les" inputmode="numeric" value="'+T[p.type][2]+'"></label><label class="f">Lezioni omaggio<input class="in" id="nk-gift" inputmode="numeric" value="0"></label></div>':'')+
-   '<p class="xs muted">La prima rata scade il giorno di inizio, le altre ogni mese. Quando paga, tocca la rata e segna il pagamento.</p><button class="btn primary lg block" data-act="nkSave" data-id="'+c.id+'">Crea percorso</button>';}
- if(s.kind==='newAppt')b='<h2>Nuovo appuntamento</h2><label class="f">Tipo<select class="in" id="na-type">'+Object.keys(AT).map(t=>'<option value="'+t+'">'+AT[t].l+'</option>').join('')+'</select></label><label class="f">Cliente (per le lezioni PT)<select class="in" id="na-client"><option value="">—</option>'+S.db.clients.filter(c=>c.status==='attivo').map(c=>'<option value="'+c.id+'">'+esc(c.name)+'</option>').join('')+'</select></label><label class="f">Titolo (per gli altri tipi)<input class="in" id="na-title" placeholder="Es. Total Body"></label><div class="grid2"><label class="f">Giorno<input class="in" id="na-date" type="date" value="'+S.ui.day+'"></label><label class="f">Ora<input class="in" id="na-time" type="time" value="10:00"></label></div><label class="f">Durata<select class="in" id="na-dur"><option>30</option><option>45</option><option selected>60</option><option>90</option></select></label><label class="row small"><input type="checkbox" id="na-rep"> Ripeti ogni settimana per 4 settimane</label><button class="btn primary lg block" data-act="apptSave">Salva</button>';
- if(s.kind==='proroga'){const k=contractOf(client(S.ui.page.id));b='<h2>Proroga scadenza</h2><p class="muted">Scadenza attuale: '+fd(k.end)+'</p><label class="f">Nuova scadenza<input class="in" id="pr-date" type="date" value="'+addDays(k.end,14)+'"></label><label class="f">Motivo (obbligatorio)<input class="in" id="pr-why" placeholder="Es. due settimane di malattia"></label><button class="btn primary lg block" data-act="prorogaSave">Salva proroga</button>';}
- if(s.kind==='rettifica')b='<h2>Rettifica lezioni</h2><div class="grid2"><label class="f">Variazione<select class="in" id="rt-d"><option value="1">+1 lezione</option><option value="-1">−1 lezione</option></select></label><label class="f">Tipo<select class="in" id="rt-t"><option value="pagata">Incluse</option><option value="omaggio">Omaggio</option></select></label></div><label class="f">Motivo (obbligatorio)<input class="in" id="rt-why" placeholder="Es. lezione recuperata"></label><button class="btn primary lg block" data-act="rettificaSave">Salva rettifica</button>';
+  b='<h2>Dati di '+esc(c.first||c.name.split(' ')[0])+'</h2><div class="grid2"><label class="f">Nome<input class="in" id="ce-first" maxlength="40" value="'+esc(c.first||c.name.split(' ')[0])+'"></label><label class="f">Cognome<input class="in" id="ce-last" maxlength="40" value="'+esc(c.last!=null?c.last:c.name.split(' ').slice(1).join(' '))+'"></label></div><label class="f">Telefono<input class="in" id="ce-phone" type="tel" inputmode="tel" maxlength="20" value="'+esc(c.phone||'')+'"></label><div class="grid2"><label class="f">Provenienza<select class="in" id="ce-origin"><option value="esterno"'+(c.origin!=='interno'?' selected':'')+'>Esterno</option><option value="interno"'+(c.origin==='interno'?' selected':'')+'>Interno</option></select></label><label class="f">Iscritto in palestra<select class="in" id="ce-gym"><option value="1"'+(c.gym?' selected':'')+'>Sì</option><option value="0"'+(!c.gym?' selected':'')+'>No</option></select></label></div><label class="f">'+(locked?'Email (la cambia il cliente dal suo account)':'Email (facoltativa)')+'<input class="in" id="ce-mail" type="email" inputmode="email" value="'+esc(c.email||'')+'"'+(locked?' readonly':'')+'></label><div class="grid2"><label class="f">Età<input class="in" id="ce-age" inputmode="numeric" maxlength="3" value="'+esc(c.age||'')+'"></label><label class="f">Livello<select class="in" id="ce-level">'+['Principiante','Intermedio','Avanzato'].map(l=>'<option'+(c.level===l?' selected':'')+'>'+l+'</option>').join('')+'</select></label></div><label class="f">Obiettivo<input class="in" id="ce-goal" maxlength="120" value="'+esc(c.goal||'')+'"></label><label class="f">Disponibilità<input class="in" id="ce-avail" maxlength="120" value="'+esc(c.avail||'')+'" placeholder="Es. lun e gio sera"></label><label class="f">Limitazioni e anamnesi (le vedi solo tu)<textarea class="in" id="ce-limits" maxlength="600">'+esc(c.limits||'')+'</textarea></label><button class="btn primary lg block" data-act="clientEditSave" data-id="'+c.id+'">Salva</button>';}
+ if(s.kind==='newContract'){const c=client(s.id);const p=S.ui.nk||(S.ui.nk={type:'mensile'});if(!KIND[p.type])p.type='mensile';
+  const T={singola:['Lezione singola',1,1,1],mensile:['Pacchetto mensile · 8 lezioni',8,4,1],plurimensile:['Pacchetto 3 mesi · 8 lezioni al mese',8,13,3],scheda:['Scheda personalizzata',0,8,1]};const t=T[p.type];
+  b='<h2>Nuovo servizio per '+esc(c.first||c.name.split(' ')[0])+'</h2><p class="muted small">Un cliente può avere più servizi insieme: ognuno ha saldo e scadenze propri.</p><div class="chipset" role="group" aria-label="Tipo">'+Object.keys(KIND).map(k=>'<button type="button" aria-pressed="'+(p.type===k)+'" data-act="nkType" data-v="'+k+'">'+KIND[k]+'</button>').join('')+'</div>'+
+   '<label class="f">Nome<input class="in" id="nk-name" maxlength="80" value="'+esc(t[0])+'"></label>'+
+   '<div class="grid2"><label class="f">Inizio<input class="in" id="nk-start" type="date" value="'+TODAY+'"></label><label class="f">Durata (settimane)<input class="in" id="nk-weeks" inputmode="numeric" value="'+t[2]+'"></label></div>'+
+   '<div class="grid2"><label class="f">Prezzo totale (€)<input class="in" id="nk-price" inputmode="decimal" placeholder="0"></label><label class="f">Rate mensili<select class="in" id="nk-n">'+[1,2,3,4,5,6,8,10,12].map(n=>'<option'+(n===t[3]?' selected':'')+'>'+n+'</option>').join('')+'</select></label></div>'+
+   (p.type!=='scheda'?'<div class="grid2"><label class="f">Lezioni'+(p.type==='plurimensile'?' (vedi sotto)':' incluse')+'<input class="in" id="nk-les" inputmode="numeric" value="'+t[1]+'"></label><label class="f">Lezioni omaggio<input class="in" id="nk-gift" inputmode="numeric" value="0"></label></div>'+
+    (p.type==='plurimensile'?'<label class="f">Le lezioni valgono<select class="in" id="nk-quota"><option value="mese">al mese (quelle non fatte non passano al mese dopo)</option><option value="totale">in totale per tutto il pacchetto</option></select></label>':''):'')+
+   '<p class="xs muted">La prima rata scade il giorno di inizio, le altre ogni mese. Le lezioni si scalano solo quando le segni come svolte.</p><button class="btn primary lg block" data-act="nkSave" data-id="'+c.id+'">Crea servizio</button>';}
+ if(s.kind==='newAppt'){const ty=s.type||'pt';const cl=S.db.clients.filter(c=>stageOf2(c)!=='archivio'||c.id===s.cid).sort((a,b)=>a.name.localeCompare(b.name));const sc=s.cid?client(s.cid):null;
+  b='<h2>'+(ty==='free'?'Programma la prova gratuita':'Nuovo appuntamento')+'</h2><label class="f">Tipo<select class="in" id="na-type">'+Object.keys(AT).map(t=>'<option value="'+t+'"'+(t===ty?' selected':'')+'>'+AT[t].l+'</option>').join('')+'</select></label>'+
+   '<label class="f">Cliente<select class="in" id="na-client" data-bind="naClient"><option value="">—</option>'+cl.map(c=>'<option value="'+c.id+'"'+(c.id===s.cid?' selected':'')+'>'+esc(c.name)+'</option>').join('')+'</select></label><p class="xs muted" id="na-bal">'+(sc?esc(balanceText(sc)):'')+'</p>'+
+   '<label class="f">Titolo (se non è con un cliente)<input class="in" id="na-title" placeholder="Es. Total Body"></label>'+
+   '<div class="grid2"><label class="f">Giorno<input class="in" id="na-date" type="date" value="'+S.ui.day+'"></label><label class="f">Ora<input class="in" id="na-time" type="time" value="10:00"></label></div>'+
+   '<div class="grid2"><label class="f">Durata (min)<input class="in" id="na-dur" inputmode="numeric" value="60"></label><label class="f">Ripeti ogni settimana<select class="in" id="na-rep"><option value="1">No</option>'+[2,4,6,8,10,12].map(n=>'<option value="'+n+'">'+n+' settimane</option>').join('')+'</select></label></div>'+
+   '<label class="row small"><input type="checkbox" id="na-prov"> Provvisorio (da confermare: niente promemoria al cliente)</label>'+
+   '<button class="btn primary lg block" data-act="apptSave">Salva</button><p class="xs muted">Le lezioni si scalano solo quando le segni come svolte.</p>';}
+ if(s.kind==='proroga'){const k=svcPick();b='<h2>Proroga scadenza</h2><p class="muted">Scadenza attuale: '+fd(k.end)+'</p><label class="f">Nuova scadenza<input class="in" id="pr-date" type="date" value="'+addDays(k.end,14)+'"></label><label class="f">Motivo (obbligatorio)<input class="in" id="pr-why" placeholder="Es. due settimane di malattia"></label><button class="btn primary lg block" data-act="prorogaSave" data-id="'+k.id+'">Salva proroga</button>';}
+ if(s.kind==='rettifica'){const k=svcPick();b='<h2>Rettifica lezioni · '+esc(k.name)+'</h2><div class="grid2"><label class="f">Variazione<select class="in" id="rt-d"><option value="1">+1 lezione</option><option value="-1">−1 lezione</option></select></label><label class="f">Tipo<select class="in" id="rt-t"><option value="pagata">Incluse</option><option value="omaggio">Omaggio</option></select></label></div><label class="f">Motivo (obbligatorio)<input class="in" id="rt-why" placeholder="Es. lezione recuperata"></label><button class="btn primary lg block" data-act="rettificaSave" data-id="'+k.id+'">Salva rettifica</button>';}
  if(s.kind==='misure')b='<h2>Nuove misure</h2><div class="grid2">'+[['peso','Peso kg'],['vita','Vita cm'],['fianchi','Fianchi cm'],['braccio','Braccio cm'],['cosciaDx','Coscia dx cm'],['cosciaSx','Coscia sx cm']].map(f=>'<label class="f">'+f[1]+'<input class="in num" id="ms-'+f[0]+'" type="number" inputmode="decimal" step="0.1"></label>').join('')+'</div><button class="btn primary lg block" data-act="misureSave">Salva</button>';
  if(s.kind==='shiftEdit'){const r=S.db.shifts[+s.id];b='<h2>Correggi '+fd(r.date)+'</h2><div class="grid2"><label class="f">Ingresso<input class="in" id="se-in" type="time" value="'+r.in+'"></label><label class="f">Uscita<input class="in" id="se-out" type="time" value="'+r.out+'"></label></div><label class="f">Motivo<input class="in" id="se-why" placeholder="Es. dimenticato di timbrare"></label><button class="btn primary lg block" data-act="shiftSave">Salva correzione</button>';}
  if(s.kind==='newLead')b='<h2>Nuovo contatto</h2><label class="f">Nome<input class="in" id="ld-name"></label>'+srcFields('ld')+'<label class="f">Interesse<input class="in" id="ld-int" placeholder="Es. pacchetto 8 lezioni"></label><button class="btn primary lg block" data-act="leadSave">Aggiungi</button>';
@@ -1220,6 +1296,7 @@ let toastT=null,lastRoute='',wrapT=null;
 function route(){const u=S.ui;return u.role+'|'+u.tab+'|'+(u.page?u.page.name+u.page.id:'')+'|'+u.ctab+'|'+u.ctabMain+'|'+u.ntab+'|'+u.ptab+'|'+(u.wk?'wk':'')+'|'+u.aperiod;}
 function render(){
  const r=S.ui.role;
+ {const pg=S.ui.page;if(pg&&(pg.name==='cliente'||pg.name==='editProg')&&!client(pg.id)){S.ui.page=null;S.ui.editProg=null;}const sh=S.ui.sheet;if(sh&&['esito','stage','dup','clientEdit','newContract'].indexOf(sh.kind)>=0&&!client(sh.id))S.ui.sheet=null;}
  document.getElementById('r-coach').setAttribute('aria-pressed',r==='coach');
  document.getElementById('r-client').setAttribute('aria-pressed',r==='client');
  const main=document.getElementById('main'),nav=document.getElementById('nav'),wkbar=document.getElementById('wkbar');
@@ -1262,15 +1339,15 @@ const val=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
 /* ---------- azioni ---------- */
 const A={
  role(d){if(REAL)return;S.ui.role=d.v;S.ui.page=null;S.ui.sheet=null;render();go();},
- tab(d){S.ui.role='coach';S.ui.tab=d.v;S.ui.page=null;render();go();},
+ tab(d){S.ui.role='coach';if(d.v==='clienti'&&S.ui.tab!=='clienti')S.ui.cfilter='tutti';S.ui.tab=d.v;S.ui.page=null;render();go();},
  numeri(d){S.ui.role='coach';S.ui.tab='numeri';S.ui.page=null;S.ui.ntab=d.v;render();},
  ctabMain(d){S.ui.ctabMain=d.v;S.ui.page=null;render();go();},
  ptab(d){S.ui.ctabMain='progressi';S.ui.page=null;S.ui.ptab=d.v;render();},
- open(d){S.ui.page={name:d.v,id:d.id,prev:S.ui.page};S.ui.sheet=null;render();go();},
+ open(d){if(d.v==='contatti'){S.ui.sheet=null;A.cfilter({v:'prove',go:1});return;}S.ui.page={name:d.v,id:d.id,prev:S.ui.page};S.ui.sheet=null;render();go();},
  back(){S.ui.page=S.ui.page&&S.ui.page.prev||null;S.ui.editProg=null;render();go();},
  openClient(d){S.ui.role='coach';S.ui.sheet=null;S.ui.page={name:'cliente',id:d.id,prev:S.ui.page&&S.ui.page.name!=='cliente'?S.ui.page:null};S.ui.ctab='profilo';render();go();},
  ctab(d){S.ui.ctab=d.v;render();},
- cfilter(d){S.ui.cfilter=d.v;render();},
+ cfilter(d){S.ui.cfilter=d.v;if(d.go){S.ui.page=null;S.ui.tab='clienti';render();go();return;}render();},
  csrc(d){S.ui.csrc=d.v||null;render();},
  lsrc(d){S.ui.lsrc=d.v;render();},
  aperiod(d){S.ui.aperiod=d.v;render();},
@@ -1290,15 +1367,33 @@ const A={
  setSrcD(d){const c=client(S.ui.page.id);c.srcD=d.v;save();render();},
  quickSrc(d){const c=client(d.id);c.src=d.v;save();toast(c.name+': provenienza '+d.v);},
  apptOpen(d){S.ui.sheet={kind:'appt',id:d.id};render();},
- apptDone(d){const a=S.db.appts.find(x=>x.id===d.id);a.status='svolto';let msg='Segnata come svolta';
-  if(a.type==='pt'&&a.clientId){const k=contractOf(client(a.clientId));if(k&&k.lessons){const cr=credits(k);if(cr.total>0){const type=cr.gift>0?'omaggio':'pagata';k.mov.push({date:TODAY,type:type,delta:-1,reason:'Lezione svolta '+fd(a.date),by:'Sistema'});msg='Lezione svolta: scalata 1 lezione '+(type==='omaggio'?'omaggio':'inclusa')+'. Ne restano '+credits(k).total+'.';}else msg='Svolta, ma il percorso non ha più lezioni: valuta una rettifica.';}}
-  if(a.type==='free'&&a.leadId){const l=S.db.leads.find(x=>x.id===a.leadId);if(l){l.stage='svolta';l.next='Chiedere un feedback';}msg='Prova svolta: il contatto passa a “Prova svolta”.';}
+ apptDone(d){const a=S.db.appts.find(x=>x.id===d.id);a.status='svolto';a.prov=false;let msg='Segnata come svolta';const c=a.clientId?client(a.clientId):null;
+  if(a.type==='pt'&&c){const k=ptService(c);if(k){const cr=credits(k);const type=cr.gift>0?'omaggio':'pagata';k.mov.push({date:a.date<=TODAY?a.date:TODAY,type:type,delta:-1,reason:'Lezione svolta '+fd(a.date),by:'Coach'});msg='Lezione svolta: scalata 1 lezione da “'+k.name+'”. Ne restano '+credits(k).total+(k.quota==='mese'?' questo mese':'')+'.';}else msg='Svolta, ma non c\'è un pacchetto con lezioni: valuta un rinnovo.';clog(c,'Lezione svolta il '+fd(a.date));}
+  if(a.type==='free'&&c){c.trial=Object.assign(trialOf(c),{status:'svolta',doneOn:a.date,apptId:a.id});clog(c,'Prova gratuita svolta il '+fd(a.date));if(stageOf2(c)==='prova')setStage(c,'decisione','prova svolta');refreshStages();save();S.ui.sheet={kind:'esito',id:c.id};render();toast('Prova svolta: ora indica l\'esito');return;}
+  S.ui.sheet=null;refreshStages();save();toast(msg);},
+ apptCancel(d){const a=S.db.appts.find(x=>x.id===d.id);const c=a.clientId?client(a.clientId):null;
+  if(d.v==='cliente'&&c&&a.type==='pt'){S.ui.sheet={kind:'cancelCli',id:a.id};render();return;}
+  a.status='annullato';a.cancelBy=d.v==='cliente'?'cliente':'coach';let msg='Appuntamento annullato';
+  if(a.type==='pt'&&c&&a.cancelBy==='coach'){a.outcome='da recuperare';msg='Annullata da te: la lezione resta da recuperare';}
+  if(a.type==='free'&&c){const t=trialOf(c);if(t.apptId===a.id&&t.status!=='svolta'){c.trial={status:'none',lastCancel:a.date};msg='Prova annullata: resta disponibile';}}
+  if(c)clog(c,(a.type==='free'?'Prova':'Appuntamento')+' del '+fd(a.date)+' annullato'+(a.cancelBy?' da '+(a.cancelBy==='coach'?'te':'cliente'):''));
   S.ui.sheet=null;save();toast(msg);},
- apptCancel(d){const a=S.db.appts.find(x=>x.id===d.id);a.status='annullato';let msg='Appuntamento annullato';if(d.v==='1'&&a.clientId){const k=contractOf(client(a.clientId));const cr=credits(k);if(cr.total>0){k.mov.push({date:TODAY,type:cr.gift>0?'omaggio':'pagata',delta:-1,reason:'Cancellazione tardiva '+fd(a.date),by:'Coach'});msg='Annullato e scalata 1 lezione';}}S.ui.sheet=null;save();toast(msg);},
- apptSave(){const type=val('na-type'),cid=val('na-client'),title=val('na-title'),date=val('na-date'),time=val('na-time'),du=+val('na-dur');const rep=document.getElementById('na-rep').checked;
-  if(type==='pt'&&!cid){toast('Scegli il cliente per la lezione PT');return;}if(type!=='pt'&&!title){toast('Scrivi un titolo');return;}if(!date||!time){toast('Indica giorno e ora');return;}
-  for(let i=0;i<(rep?4:1);i++)S.db.appts.push({id:uid(),date:addDays(date,7*i),time:time,dur:du,type:type,status:'previsto',clientId:type==='pt'?cid:undefined,title:type==='pt'?undefined:title});
-  S.ui.sheet=null;S.ui.day=date;save();toast(rep?'4 appuntamenti aggiunti':'Appuntamento aggiunto');},
+ apptEdit(d){const a=S.db.appts.find(x=>x.id===d.id);const nd=val('ae-date'),nt=val('ae-time'),du=Math.max(15,parseInt(val('ae-dur'),10)||a.dur);if(!nd||!nt){toast('Indica giorno e ora');return;}
+  const moved=nd!==a.date||nt!==a.time;a.date=nd;a.time=nt;a.dur=du;if(a.type==='free'&&a.clientId){const c=client(a.clientId);if(c&&trialOf(c).apptId===a.id)c.trial.date=nd;}
+  if(a.clientId&&moved)clog(client(a.clientId),'Appuntamento spostato al '+fd(nd)+' '+nt);S.ui.sheet=null;save();toast('Salvato: cambia solo questo appuntamento');},
+ apptConfirm(d){const a=S.db.appts.find(x=>x.id===d.id);a.prov=false;save();render();toast('Confermato: il cliente riceverà il promemoria il giorno prima');},
+ naClient(){const s0=document.getElementById('na-client');const out=document.getElementById('na-bal');if(!s0||!out)return;const c=client(s0.value);out.textContent=c?balanceText(c):'';},
+ apptSave(){const type=val('na-type'),cid=val('na-client'),title=val('na-title'),date=val('na-date'),time=val('na-time'),du=Math.max(15,parseInt(val('na-dur'),10)||60);
+  const reps=Math.max(1,Math.min(26,parseInt(val('na-rep'),10)||1));const prov=document.getElementById('na-prov').checked;
+  const needC=type==='pt'||type==='free';
+  if(needC&&!cid){toast('Scegli il cliente');return;}if(!needC&&!cid&&!title){toast('Scrivi un titolo');return;}if(!date||!time){toast('Indica giorno e ora');return;}
+  const c=cid?client(cid):null;
+  if(type==='free'&&c){if(trialUsed(c)){toast('Prova gratuita già usata il '+fd(trialOf(c).doneOn)+': una sola per persona');return;}const t=trialOf(c);if(t.status==='programmata'&&S.db.appts.some(x=>x.id===t.apptId&&x.status==='previsto')){toast('Ha già una prova programmata il '+fd(t.date));return;}}
+  const sid=reps>1?'s'+uid():null;let first=null;
+  for(let i=0;i<(type==='free'?1:reps);i++){const a={id:uid(),date:addDays(date,7*i),time:time,dur:du,type:type,status:'previsto',clientId:cid||undefined,title:cid?undefined:title,prov:prov,seriesId:sid||undefined};S.db.appts.push(a);if(!first)first=a;}
+  if(type==='free'&&c){c.trial={status:'programmata',date:date,apptId:first.id};if(['archivio','decisione'].indexOf(stageOf2(c))>=0)setStage(c,'prova','nuova prova');clog(c,'Prova gratuita programmata il '+fd(date)+(prov?' (provvisoria)':''));}
+  else if(c)clog(c,(reps>1?reps+' appuntamenti settimanali':'Appuntamento')+' dal '+fd(date)+(prov?' (provvisori)':''));
+  S.ui.sheet=null;S.ui.day=date;save();toast(reps>1&&type!=='free'?reps+' appuntamenti aggiunti: ognuno si modifica da solo':'Appuntamento aggiunto');},
  reqOk(d){const r=S.db.requests.find(x=>x.id===d.id);r.status='ok';if(r.from){const a=S.db.appts.find(x=>x.clientId===r.clientId&&x.date===r.date&&x.time===r.from);if(a)a.time=r.to;}else{const a=S.db.appts.find(x=>x.reqId===r.id);if(a)a.status='previsto';}save();toast('Approvata: '+client(r.clientId).name.split(' ')[0]+' riceve la conferma');},
  reqNo(d){const r=S.db.requests.find(x=>x.id===d.id);r.status='no';const a=S.db.appts.find(x=>x.reqId===r.id);if(a)a.status='annullato';save();toast('Richiesta rifiutata');},
  payOpen(d){S.ui.sheet={kind:'pay',k:d.k,n:d.n};render();},
@@ -1322,35 +1417,53 @@ const A={
  keDel(d){const k=S.db.contracts.find(x=>x.id===d.id);const c=client(k.clientId);S.db.contracts=S.db.contracts.filter(x=>x.id!==k.id);if(c&&c.contract===k.id){const other=S.db.contracts.filter(x=>x.clientId===c.id).slice(-1)[0];c.contract=other?other.id:null;}S.ui.sheet=null;save();render();toast('Percorso eliminato');},
  csvMonth(){const m=S.ui.pm||CM;const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const rows=[['Data','Tipo','Descrizione','Cliente','Metodo','Importo','Nota']].concat(moves().filter(x=>x.date.slice(0,7)===m).map(x=>[x.date,x.type==='out'?'Spesa':'Entrata',x.desc,x.c?x.c.name:'',x.method,(x.type==='out'?-x.amount:x.amount).toFixed(2).replace('.',','),x.note]));
   const blob=new Blob(['﻿'+rows.map(r=>r.map(q).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='aelis-movimenti-'+m+'.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},800);toast('File scaricato: si apre con Excel o Numbers');},
- inviteSend(d){const n=val('inv-name'),m=val('inv-mail').toLowerCase(),goal=val('inv-goal');if(n.length<2){toast('Scrivi nome e cognome');return;}
+ outcome(d){const c=client(d.id);const t=c.trial=Object.assign({status:'svolta'},trialOf(c));t.outcome=d.v;clog(c,'Esito prova: '+OUTC[d.v]);
+  if(d.v==='percorso'){S.ui.nk={type:'pack'};S.ui.sheet={kind:'newContract',id:c.id};save();render();return;}
+  if(d.v==='pensa')setStage(c,'decisione','ci pensa, da ricontattare');else setStage(c,'archivio','non interessato');
+  S.ui.sheet=null;save();render();toast(d.v==='pensa'?'In attesa: ricontattalo/a quando vuoi':'Spostato in archivio, con tutto lo storico');},
+ setStage(d){const c=client(d.id);setStage(c,d.v,'scelto dalla coach');S.ui.sheet=null;save();render();toast('Stato: '+STG[d.v].l);},
+ trialNew(d){const c=client(d.id);if(trialUsed(c)){toast('Prova gratuita già usata il '+fd(trialOf(c).doneOn)+': una sola per persona');return;}S.ui.sheet={kind:'newAppt',type:'free',cid:c.id};render();},
+ cancelCli(d){const a=S.db.appts.find(x=>x.id===d.id);const c=client(a.clientId);a.status='annullato';a.cancelBy='cliente';
+  if(d.v==='scala'){const k=ptService(c);if(k){const cr=credits(k);k.mov.push({date:TODAY,type:cr.gift>0?'omaggio':'pagata',delta:-1,reason:'Annullata dal cliente '+fd(a.date)+' · scalata',by:'Coach'});a.outcome='scalata';}}else{a.outcome='da recuperare';}
+  clog(c,'Lezione del '+fd(a.date)+' annullata dal cliente · '+a.outcome);S.ui.sheet=null;save();render();toast(a.outcome==='scalata'?'Annullata e scalata 1 lezione':'Annullata: lezione da recuperare');},
+ ncAlready(){const e=document.getElementById('inv-already');A.ncOrigin({v:(S.ui.nc||{}).origin||'esterno',already:!!(e&&e.checked)});},
+ ncSnap(){const o=S.ui.nc||(S.ui.nc={origin:'esterno'});['first','last','phone','mail','tdate','ttime','tdur'].forEach(k=>{const e=document.getElementById('inv-'+k);if(e)o[k==='mail'?'email':k]=e.value;});const pv=document.getElementById('inv-prov');if(pv)o.prov=pv.checked;const al=document.getElementById('inv-already');if(al)o.already=al.checked;return o;},
+ ncOrigin(d){const o=A.ncSnap();if(d.already!==undefined)o.already=d.already;o.origin=d.v;render();},
+ inviteSend(d){const o=A.ncSnap();const al=!!(document.getElementById('inv-already')||{}).checked;const ext=o.origin==='esterno'&&!al;
+  const first=val('inv-first'),last=val('inv-last'),phone=val('inv-phone'),m=val('inv-mail').toLowerCase(),td=al?'':val('inv-tdate'),tt=val('inv-ttime')||'18:00',du=Math.max(15,parseInt(val('inv-tdur'),10)||60),prov=!!(document.getElementById('inv-prov')||{}).checked;
+  if(!first||!last){toast('Servono nome e cognome');return;}
+  if(ext&&!phone){toast('Per un contatto esterno serve il telefono');return;}
+  if(ext&&!td){toast('Per un contatto esterno indica la data della prova');return;}
   if(m&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m)){toast('L\'email non è valida: correggila o lasciala vuota');return;}
-  if(m&&S.db.clients.some(c=>(c.email||'').toLowerCase()===m)){toast('C\'è già un cliente con questa email');return;}
-  const src=val('inv-src'),srcd=val('inv-srcd'),lead=S.ui.sheet&&S.ui.sheet.lead;
-  const c=clientDefaults({id:'c'+uid(),name:n,email:m,goal:goal,src:src||null,srcD:srcd||''});S.db.clients.push(c);
-  if(lead){const l=S.db.leads.find(x=>x.id===lead);if(l){l.stage='cliente';l.next=d.v==='invite'?'Invito creato':'Diventato cliente';}}
-  save();S.ui.sheet=null;A.openClient({id:c.id});
-  if(d.v!=='invite'){toast(n.split(' ')[0]+' aggiunto/a: inserisci percorso, appuntamenti e scheda quando vuoi');return;}
-  A.linkClient({id:c.id});},
- clientEditSave(d){const c=client(d.id);const n=val('ce-name'),m=val('ce-mail').toLowerCase();if(n.length<2){toast('Scrivi nome e cognome');return;}
+  const dup=findDup({first:first,last:last,phone:phone,email:m});
+  if(dup){S.ui.sheet={kind:'dup',id:dup.id};render();return;}
+  const src=val('inv-src'),srcd=val('inv-srcd');
+  const c=clientDefaults({id:'c'+uid(),first:first,last:last,name:first+' '+last,phone:phone,email:m,origin:o.origin,gym:o.origin==='interno',src:src||(o.origin==='interno'?'Sala':null),srcD:srcd||'',stage:al?'attivo':'prova',since:TODAY});
+  clog(c,(al?'Cliente inserito':'Contatto inserito')+' ('+o.origin+')');S.db.clients.push(c);
+  if(td){const a={id:uid(),date:td,time:tt,dur:du,type:'free',status:'previsto',clientId:c.id,prov:prov};S.db.appts.push(a);c.trial={status:'programmata',date:td,apptId:a.id};clog(c,'Prova gratuita programmata il '+fd(td)+(prov?' (provvisoria)':''));}
+  S.ui.nc=null;save();S.ui.sheet=null;A.openClient({id:c.id});if(al)S.ui.ctab='percorso';
+  if(d.v==='invite'){A.linkClient({id:c.id});return;}render();toast(first+' inserito/a'+(td?': prova del '+fd(td)+' in agenda':al?': aggiungi i suoi servizi':''));},
+ clientEditSave(d){const c=client(d.id);const fi=val('ce-first'),la=val('ce-last'),n=(fi+' '+la).trim(),m=val('ce-mail').toLowerCase(),ph=val('ce-phone');if(!fi||!la){toast('Servono nome e cognome');return;}
+  const dup=findDup({first:fi,last:la,phone:ph,email:m},c.id);if(dup){toast('Esiste già '+dup.name+' con questi dati: una persona, una scheda');return;}
   if(m&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(m)){toast('L\'email non è valida');return;}
   if(m&&S.db.clients.some(x=>x.id!==c.id&&(x.email||'').toLowerCase()===m)){toast('C\'è già un cliente con questa email');return;}
-  const apply=()=>{c.name=n;c.ini=inits(n);c.email=m;const a=parseInt(val('ce-age'),10);c.age=a>0&&a<120?a:'';c.level=val('ce-level')||c.level;c.goal=val('ce-goal');c.avail=val('ce-avail');c.limits=val('ce-limits');S.ui.sheet=null;save();render();toast('Dati salvati');};
+  const apply=()=>{const og=val('ce-origin'),gy=val('ce-gym')==='1';if(og!==c.origin)clog(c,'Provenienza: '+og);if(gy!==!!c.gym)clog(c,gy?'Ora iscritto in palestra':'Non più iscritto in palestra');c.first=fi;c.last=la;c.name=n;c.ini=inits(n);c.email=m;c.phone=ph;c.origin=og;c.gym=gy;const a=parseInt(val('ce-age'),10);c.age=a>0&&a<120?a:'';c.level=val('ce-level')||c.level;c.goal=val('ce-goal');c.avail=val('ce-avail');c.limits=val('ce-limits');S.ui.sheet=null;save();render();toast('Dati salvati');};
   const f=REAL&&AelisCloud.inviteInfo(c.id);
   if(f&&!f.linked&&(c.email||'')!==m)AelisCloud.setInviteEmail(c.id,m).then(apply).catch(e=>toast(e.message));else apply();},
  nkType(d){S.ui.nk={type:d.v};render();},
- nkSave(d){const c=client(d.id);const type=(S.ui.nk||{}).type||'pack';const name=val('nk-name')||'Percorso';const start=val('nk-start')||TODAY;const weeks=Math.max(1,parseInt(val('nk-weeks'),10)||8);
+ nkSave(d){const c=client(d.id);let type=(S.ui.nk||{}).type||'mensile';if(!KIND[type])type='mensile';const name=val('nk-name')||KIND[type];const quota=type==='plurimensile'&&val('nk-quota')==='mese'?'mese':'totale';const start=val('nk-start')||TODAY;const weeks=Math.max(1,parseInt(val('nk-weeks'),10)||8);
   const price=Math.max(0,parseFloat((val('nk-price')||'0').replace(',','.'))||0);const n=Math.max(1,parseInt(val('nk-n'),10)||1);
-  const les=type==='online'?0:Math.max(0,parseInt(val('nk-les'),10)||0);const gift=type==='online'?0:Math.max(0,parseInt(val('nk-gift'),10)||0);
+  const les=type==='scheda'?0:Math.max(0,parseInt(val('nk-les'),10)||0);const gift=type==='scheda'?0:Math.max(0,parseInt(val('nk-gift'),10)||0);
   const addM=(d0,k)=>{const x=new Date(d0+'T12:00:00');x.setMonth(x.getMonth()+k);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');};
   const per=Math.floor(price/n*100)/100;const inst=[];for(let i=0;i<n;i++)inst.push({n:i+1,due:addM(start,i),amount:i===n-1?Math.round((price-per*(n-1))*100)/100:per,paid:0,paidOn:null,method:null});
-  const mov=[];if(les)mov.push({date:start,type:'pagata',delta:les,reason:'Acquisto percorso',by:'Coach'});if(gift)mov.push({date:start,type:'omaggio',delta:gift,reason:'Lezioni omaggio',by:'Coach'});
-  const k={id:'k'+uid(),clientId:c.id,name:name,start:start,end:addDays(start,weeks*7),price:price,status:'attivo',lessons:type!=='online',inst:inst,mov:mov,adj:[]};
-  S.db.contracts.push(k);c.contract=k.id;c.status='attivo';S.ui.sheet=null;S.ui.nk=null;save();render();toast('Percorso creato'+(price?': '+n+(n>1?' rate':' rata')+' da segnare quando paga':''));},
+  const mov=[];if(quota==='mese'){if(gift)mov.push({date:start,type:'omaggio',delta:gift,reason:'Lezioni omaggio (mese di inizio)',by:'Coach'});}else if(les)mov.push({date:start,type:'pagata',delta:les,reason:'Acquisto percorso',by:'Coach'});if(gift&&quota!=='mese')mov.push({date:start,type:'omaggio',delta:gift,reason:'Lezioni omaggio',by:'Coach'});
+  const k={id:'k'+uid(),clientId:c.id,name:name,start:start,end:addDays(start,weeks*7),price:price,status:'attivo',kind:type,lessons:type!=='scheda'&&(les>0||gift>0),quota:quota,perMonth:quota==='mese'?les:0,inst:inst,mov:mov,adj:[]};
+  S.db.contracts.push(k);c.contract=k.id;c.status='attivo';clog(c,'Nuovo servizio: '+name+(price?' · '+eur(price):''));setStage(c,'attivo','nuovo servizio');S.ui.sheet=null;S.ui.nk=null;if(S.ui.page&&S.ui.page.name==='cliente')S.ui.ctab='percorso';save();render();toast('Servizio creato'+(price?': '+n+(n>1?' rate':' rata')+' da segnare quando paga':''));},
  obToggle(d){const c=client(S.ui.page.id);c.ob[d.k]=!c.ob[d.k];save();render();},
  viewAs(d){if(REAL){toast('Anteprima disponibile nella versione demo');return;}S.ui.asClient=d.id;S.ui.role='client';S.ui.page=null;S.ui.ctabMain='home';render();go();toast('Stai vedendo l\'app di '+client(d.id).name.split(' ')[0]);},
- suspend(){const c=client(S.ui.page.id);const k=contractOf(c);if(k.status==='sospeso'){k.status='attivo';c.status='attivo';k.adj.push({date:TODAY,old:k.end,neu:null,reason:'Percorso riattivato'});toast('Percorso riattivato. Imposta la nuova scadenza con “Proroga”.');}else{k.status='sospeso';k.suspendedOn=TODAY;c.status='sospeso';k.adj.push({date:TODAY,old:k.end,neu:null,reason:'Percorso sospeso dalla coach'});toast('Percorso sospeso: lo storico resta salvato');}save();},
- prorogaSave(){const k=contractOf(client(S.ui.page.id));const d=val('pr-date'),w=val('pr-why');if(!d||!w){toast('Servono data e motivo');return;}k.adj.push({date:TODAY,old:k.end,neu:d,reason:w});k.end=d;S.ui.sheet=null;save();toast('Nuova scadenza: '+fd(d));},
- rettificaSave(){const k=contractOf(client(S.ui.page.id));const w=val('rt-why');if(!w){toast('Il motivo è obbligatorio');return;}k.mov.push({date:TODAY,type:val('rt-t'),delta:+val('rt-d'),reason:w,by:'Coach'});S.ui.sheet=null;save();toast('Rettifica salvata nel registro');},
+ suspend(d){const c=client(S.ui.page.id);const k=svcPick(d);if(k.status==='sospeso'){k.status='attivo';c.status='attivo';clog(c,'“'+k.name+'” riattivato');k.adj.push({date:TODAY,old:k.end,neu:null,reason:'Percorso riattivato'});toast('Percorso riattivato. Imposta la nuova scadenza con “Proroga”.');}else{k.status='sospeso';k.suspendedOn=TODAY;if(!activeServices(c).some(x=>x.id!==k.id&&x.status!=='sospeso'))c.status='sospeso';clog(c,'“'+k.name+'” sospeso');k.adj.push({date:TODAY,old:k.end,neu:null,reason:'Percorso sospeso dalla coach'});toast('Percorso sospeso: lo storico resta salvato');}save();},
+ prorogaSave(dd){const k=svcPick(dd);const d=val('pr-date'),w=val('pr-why');if(!d||!w){toast('Servono data e motivo');return;}k.adj.push({date:TODAY,old:k.end,neu:d,reason:w});k.end=d;clog(client(k.clientId),'Proroga “'+k.name+'” al '+fd(d)+': '+w);S.ui.sheet=null;refreshStages();save();toast('Nuova scadenza: '+fd(d));},
+ rettificaSave(d){const k=svcPick(d);const w=val('rt-why');if(!w){toast('Il motivo è obbligatorio');return;}k.mov.push({date:TODAY,type:val('rt-t'),delta:+val('rt-d'),reason:w,by:'Coach'});clog(client(k.clientId),'Rettifica lezioni '+val('rt-d')+' su “'+k.name+'”: '+w);S.ui.sheet=null;refreshStages();save();toast('Rettifica salvata nel registro');},
  misureSave(){const c=client(S.ui.page.id);const m={clientId:c.id,date:TODAY};['peso','vita','fianchi','braccio','cosciaDx','cosciaSx'].forEach(k=>{const v=parseFloat(val('ms-'+k).replace(',','.'));m[k]=isNaN(v)?'':v;});S.db.measures.push(m);c.ob.foto=true;S.ui.sheet=null;save();toast('Misure salvate');},
  shiftSave(){const r=S.db.shifts[+S.ui.sheet.id];const w=val('se-why');if(!w){toast('Scrivi il motivo della correzione');return;}r.in=val('se-in');r.out=val('se-out');r.fix=w;S.ui.sheet=null;save();toast('Correzione salvata');},
  leadMove(d){const l=S.db.leads.find(x=>x.id===d.id);l.stage=d.v;if(d.v==='perso')l.next='Non interessato';if(d.v==='svolta')l.next='Chiedere un feedback';save();render();},
@@ -1360,7 +1473,7 @@ const A={
  schedSave(){const t=val('sc-txt');if(!t){toast('Scrivi il testo');return;}S.db.scheduled.push({id:uid(),to:val('sc-to'),when:val('sc-d')+' '+val('sc-t'),trigger:null,text:t});S.ui.sheet=null;save();toast('Messaggio programmato');},
  bookType(d){S.ui.book=Object.assign({slot:null},S.ui.book||{},{type:d.v});render();},
  bookSlot(d){S.ui.book=Object.assign({type:'prova'},S.ui.book||{},{slot:+d.v});render();},
- bookSend(){const b=S.ui.book;const sl=freeSlots()[b.slot];const n=val('bk-name')||'Nuovo contatto';const id=uid();S.db.leads.push({id:id,name:n,src:'Social',srcD:'Instagram',contacted:TODAY,stage:'fissata',free:sl.d+' '+sl.t,next:b.type==='prova'?'Prova da confermare':'Chiacchierata da confermare',interest:val('bk-contact')});S.db.appts.push({id:uid(),date:sl.d,time:sl.t,dur:b.type==='prova'?30:15,type:b.type==='prova'?'free':'consulenza',status:'attesa',title:n,leadId:id});S.ui.book={type:b.type,slot:null,done:true};save();render();},
+ bookSend(){const b=S.ui.book;const sl=freeSlots()[b.slot];const n=val('bk-name')||'Nuovo contatto';const pp=n.split(/\s+/);const c=clientDefaults({id:'c'+uid(),name:n,first:pp[0],last:pp.slice(1).join(' '),phone:val('bk-contact'),src:'Social',srcD:'Instagram',origin:'esterno',stage:'prova',since:TODAY});const ap={id:uid(),date:sl.d,time:sl.t,dur:b.type==='prova'?60:15,type:b.type==='prova'?'free':'consulenza',status:'attesa',clientId:c.id,prov:true};if(b.type==='prova')c.trial={status:'programmata',date:sl.d,apptId:ap.id};clog(c,'Prenotazione dalla pagina pubblica');S.db.clients.push(c);S.db.appts.push(ap);S.ui.book={type:b.type,slot:null,done:true};save();render();},
  bookReset(){S.ui.book=null;render();},
  reset(){if(REAL)return;try{localStorage.removeItem(KEY);}catch(e){}S.db=seed();S.ui.page=null;S.ui.tab='oggi';S.ui.wk=null;S.ui.party=null;toast('Dati di esempio ripristinati');},
  editProg(d){const c=client(d.id);const p=programOf(c);S.ui.editProg={clientId:c.id,version:p?p.version+1:1,sel:0,ai:false,sessions:p?JSON.parse(JSON.stringify(p.sessions)):[{key:'A',name:'Seduta A',items:[]}]};S.ui.page={name:'editProg',id:c.id,prev:S.ui.page};render();go();},
@@ -1495,6 +1608,7 @@ document.addEventListener('click',e=>{
  if(t.classList.contains('scrim')&&e.target!==t)return;
  const fn=A[t.dataset.act];if(fn){e.preventDefault();fn(t.dataset);}
 });
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='inv-already')A.ncAlready();});
 /* notifiche push collegate alle azioni (solo versione reale) */
 (function(){
  const wrap=(k,fn)=>{const o=A[k];A[k]=function(d){const pre=fn.pre?fn.pre(d):null;const r=o.apply(A,arguments);try{fn.post(d,pre);}catch(e){}return r;};};
@@ -1515,6 +1629,7 @@ document.addEventListener('input',e=>{
   if(b==='cmsg'){S.db.coachMsg[S.ui.page.id]=t.value;save();return;}
   if(b==='wkNote'){S.ui.wk.note=t.value;return;}
   if(b==='chkNote'){S.ui.chkNote=t.value;return;}
+  if(b==='naClient'){A.naClient();return;}
   if(b==='exdist'){S.ui.exdist=t.value;render();return;}
   if(b==='chatDraft'){S.ui.chatDraft=t.value;t.style.height='auto';t.style.height=Math.min(140,t.scrollHeight)+'px';return;}
   if(b==='epName'){S.ui.editProg.sessions[S.ui.editProg.sel].name=t.value;return;}
@@ -1544,12 +1659,12 @@ setInterval(()=>{
  const sh=S.db.shift;if(sh){const e2=document.getElementById('elapsed');if(e2)e2.textContent=dur((Date.now()-sh.ts)/60000)+' finora';}
 },1000);
 if(REAL&&window.AelisCloud)AelisCloud.start({S:S,emptyDb:emptyDb,clientDefaults:clientDefaults,setDb:db=>{S.db=db;},reset:()=>{S.db=emptyDb();S.ui.role='coach';S.ui.page=null;S.ui.sheet=null;S.ui.wk=null;S.ui.party=null;S.ui.wrap=null;['main','nav','overlay','wkbar','party','wrap'].forEach(id=>{const e=document.getElementById(id);if(e){e.innerHTML='';e._last=null;}});},rerender:()=>render(),toast:toast,chBoard:chBoard,
- ready:(role,cid)=>{if(role==='coach'&&migrateLib())setTimeout(save,0);S.ui.role=role;if(cid)S.ui.asClient=cid;S.ui.page=null;S.ui.sheet=null;S.ui.wk=null;S.ui.party=null;S.ui.tab='oggi';S.ui.ctabMain='home';render();go();openFromUrl(location.search);try{if(/[?&](chat|go)=/.test(location.search))history.replaceState(null,'',location.pathname);}catch(e){}},
+ ready:(role,cid)=>{if(role==='coach'){const m1=migrateLib(),m2=migrateCRM(),m3=refreshStages();if(m1||m2||m3)setTimeout(save,0);}S.ui.role=role;if(cid)S.ui.asClient=cid;S.ui.page=null;S.ui.sheet=null;S.ui.wk=null;S.ui.party=null;S.ui.tab='oggi';S.ui.ctabMain='home';render();go();openFromUrl(location.search);try{if(/[?&](chat|go)=/.test(location.search))history.replaceState(null,'',location.pathname);}catch(e){}},
  chatChanged:(m)=>{const pg=S.ui.page;
   if(m&&m.sender!==S.ui.role&&!(pg&&pg.name==='chat'&&chatCid()===m.client_id)){const c=client(m.client_id);toast(S.ui.role==='coach'?'Nuovo messaggio da '+(c?c.name.split(' ')[0]:'un cliente'):'Nuovo messaggio da Aelis');}
   if(pg&&(pg.name==='chat'||pg.name==='chats')&&!S.ui.sheet){const a=document.activeElement;const typing=a&&a.id==='chat-in';render();if(typing){const i=document.getElementById('chat-in');if(i){i.focus();const n=i.value.length;try{i.setSelectionRange(n,n);}catch(e){}}}}
   else updateChatBadge();}});
-else{if(migrateLib())save();render();}
+else{const m1=migrateLib(),m2=migrateCRM(),m3=refreshStages();if(m1||m2||m3)save();render();}
 function openFromUrl(q){
  const p=new URLSearchParams(q||'');const ch=p.get('chat'),g=p.get('go');
  if(ch){if(S.ui.role==='coach'&&client(ch))A.openChat({id:ch});else if(S.ui.role==='client')A.openChat({});return;}

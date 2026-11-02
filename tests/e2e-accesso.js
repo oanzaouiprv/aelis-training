@@ -42,10 +42,10 @@ ok(/non è quella della coach/.test(await c.textContent('#au-err')),'email diver
  ok(/Cambia password/.test(await txt(c))&&/Esci/.test(await txt(c)),'sezione Account presente');
  // secondo account coach: bloccato
  const r2=handle({kind:'signup',email:'aelis@test.it',password:'x'});ok(!!r2.error,'secondo account con email coach bloccato');
+ const newC=async(p,first,last,mail,v)=>{await p.click('[data-act="tab"][data-v="clienti"]');await p.waitForTimeout(100);await p.click('[data-act="sheet"][data-v="invite"]');await p.waitForTimeout(150);await p.check('#inv-already');await p.waitForTimeout(150);await p.fill('#inv-first',first);await p.fill('#inv-last',last);if(mail)await p.fill('#inv-mail',mail);await p.click('[data-act="inviteSend"][data-v="'+(v||'save')+'"]');};
  // ---------- invito ----------
  await c.click('[data-act="tab"][data-v="clienti"]');await c.waitForTimeout(150);
- await c.click('[data-act="sheet"][data-v="invite"]');await c.waitForTimeout(150);
- await c.fill('#inv-name','Giulia Test');await c.fill('#inv-mail','Giulia@Test.it');await c.click('[data-act="inviteSend"][data-v="invite"]');await c.waitForTimeout(600);
+ await newC(c,'Giulia','Test','Giulia@Test.it','invite');await c.waitForTimeout(600);
  const link=await c.inputValue('#il-url').catch(()=>null);
  ok(link&&/\?invito=[0-9a-f]{32}&email=giulia%40test\.it/.test(link),'link d\'invito generato: '+link);
  await shot(c,'04-invito-pronto');
@@ -54,8 +54,8 @@ ok(/non è quella della coach/.test(await c.textContent('#au-err')),'email diver
  ok(DB.client_space.length===1,'spazio cliente creato');
  ok(!('notes' in DB.client_space[0].data.client)&&!('limits' in DB.client_space[0].data.client),'note e limitazioni NON finiscono nello spazio del cliente');
  // doppione
- await c.click('[data-act="tab"][data-v="clienti"]');await c.click('[data-act="sheet"][data-v="invite"]');await c.fill('#inv-name','Giulia Bis');await c.fill('#inv-mail','giulia@test.it');await c.click('[data-act="inviteSend"][data-v="invite"]');await c.waitForTimeout(400);
- ok(/già un cliente/.test(await toastTxt(c)),'stessa email due volte: bloccata');
+ await newC(c,'Giulia','Bis','giulia@test.it','invite');await c.waitForTimeout(400);
+ ok(/c'è già/.test(await txt(c)),'stessa email due volte: bloccata (una persona, una scheda)');
  await c.keyboard.press('Escape');
  // ---------- intruso con invito falso ----------
  const x=await page(b,'intruso');
@@ -217,15 +217,14 @@ const [dl2]=await Promise.all([g.waitForEvent('download'),(async()=>{await g.cli
  // ---------- conflitto coach su due dispositivi ----------
  const c2=await page(b,'coach-pc');await c2.goto(URL);await c2.waitForTimeout(300);
  await c2.fill('#au-mail','aelis@test.it');await c2.fill('#au-pw','Allenamento2026');await c2.click('button[type=submit]');await c2.waitForTimeout(900);
- const addLead=async(p,n)=>{await p.click('[data-act="tab"][data-v="altro"]');await p.click('[data-act="open"][data-v="contatti"]');await p.waitForTimeout(100);await p.click('[data-act="sheet"][data-v="newLead"]');await p.fill('#ld-name',n);await p.click('[data-act="leadSave"]');await p.waitForTimeout(1400);};
+ const addLead=async(p,n)=>{await newC(p,n.split(' ')[0],n.split(' ')[1]);await p.waitForTimeout(1400);};
  await c.reload();await c.waitForTimeout(900);
  await addLead(c2,'Contatto PC');await addLead(c,'Contatto Telefono');
  const t1=await toastTxt(c);ok(/altro dispositivo/.test(t1),'coach su due dispositivi: avviso e dati ricaricati');
- ok(DB.coach_space[0].data.leads.some(l=>l.name==='Contatto PC'),'la modifica dell\'altro dispositivo non viene sovrascritta');
+ ok(DB.coach_space[0].data.clients.some(l=>l.name==='Contatto PC'),'la modifica dell\'altro dispositivo non viene sovrascritta');
  await c2.ctx.close();
  // ---------- cliente creato dalla coach senza email, invito dopo ----------
- await c.click('[data-act="tab"][data-v="clienti"]');await c.click('[data-act="sheet"][data-v="invite"]');await c.waitForTimeout(150);
- await c.fill('#inv-name','Marco Senza Email');await c.click('[data-act="inviteSend"][data-v="save"]');await c.waitForTimeout(300);
+ await newC(c,'Marco','Senza Email');await c.waitForTimeout(300);
  ok(/Marco Senza Email/.test(await txt(c))&&DB.clients_index.every(r=>r.full_name!=='Marco Senza Email'),'cliente creato senza email e senza account');
  await c.click('[data-act="ctab"][data-v="percorso"]');await c.click('[data-act="sheet"][data-v="newContract"]');await c.waitForTimeout(150);
  await c.fill('#nk-price','300');await c.selectOption('#nk-n','3');await c.click('[data-act="nkSave"]');await c.waitForTimeout(1300);
@@ -240,7 +239,7 @@ const [dl2]=await Promise.all([g.waitForEvent('download'),(async()=>{await g.cli
  ok(await authKind(m2)===null,'iscrizione riuscita');
  ok(DB.clients_index.find(r=>r.id===mk.id).email==='marco@test.it','email salvata nell\'invito');
  await m2.click('[data-act="ctabMain"][data-v="percorso"]');await m2.waitForTimeout(200);
- ok(/Pacchetto 8 lezioni/i.test(await txt(m2)),'il cliente trova già pronto il percorso');
+ ok(/Pacchetto mensile/i.test(await txt(m2)),'il cliente trova già pronto il percorso');
  await m2.ctx.close();
  await c.reload();await c.waitForTimeout(900);
  ok(DB.coach_space[0].data.clients.find(x=>x.id===mk.id).email==='marco@test.it'||true,'ok');

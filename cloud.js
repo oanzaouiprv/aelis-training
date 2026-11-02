@@ -309,7 +309,7 @@ function clientSpace(c){
  return {client:pick,
   contracts:db.contracts.filter(k=>k.clientId===cid).map(k=>Object.assign({},k,{inst:k.inst.map(i=>Object.assign({},i,{pays:(i.pays||[]).map(p=>({date:p.date,amount:p.amount,method:p.method}))}))})),
   programs:db.programs.filter(p=>p.clientId===cid),
-  appts:db.appts.filter(a=>a.clientId===cid).map(a=>({id:a.id,date:a.date,time:a.time,dur:a.dur,type:a.type,status:a.status,clientId:cid,reqId:a.reqId||null})),
+  appts:db.appts.filter(a=>a.clientId===cid).map(a=>({id:a.id,date:a.date,time:a.time,dur:a.dur,type:a.type,status:a.status,clientId:cid,reqId:a.reqId||null,prov:!!a.prov})),
   measures:db.measures.filter(m=>m.clientId===cid),
   coachMsg:(db.coachMsg||{})[cid]||null,
   kudos:db.history.filter(h=>h.clientId===cid&&h.kudos).map(h=>h.id),

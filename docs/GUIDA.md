@@ -124,3 +124,14 @@ Nell'app non c'è intelligenza artificiale: promemoria del giorno, rischio abban
 2. Dal computer: Google Calendar → **Altri calendari → + → Da URL**, incolla e conferma.
 3. Compare il calendario "AELIS Training" anche sul telefono. Google lo aggiorna da solo ogni qualche ora.
 4. Se l'indirizzo finisce nelle mani sbagliate: **Rigenera l'indirizzo** e ripeti il punto 2.
+
+## Gestione clienti (come lavora la coach)
+- **Una scheda per persona:** dal primo contatto alla prova, ai pacchetti, ai rinnovi e all'archivio resta sempre la stessa. Se inserisci un nome, telefono o email già presenti, l'app apre la scheda esistente.
+- **Nuovo contatto:** nome, cognome, telefono, *esterno* (non iscritto in palestra) o *interno* (già iscritto). Per gli esterni servono telefono e data della prova. Se è già un cliente, spunta "È già un cliente" e aggiungi i suoi servizi.
+- **Prova gratuita:** una sola per persona. Conta come usata solo quando la segni **svolta**; se viene annullata resta disponibile.
+- **Esito della prova:** appena la segni svolta l'app chiede *Inizia un percorso*, *Ci pensa* o *Non interessato*. Finché non scegli, resta in "Da sistemare" nella Home.
+- **Stati:** Prova, In attesa di decisione, Attivo, In attesa di rinnovo, Archivio. L'unico passaggio automatico è Attivo → In attesa di rinnovo quando finiscono i servizi; in archivio ci va solo se lo decidi tu.
+- **Servizi:** lezione singola, pacchetto mensile, plurimensile (lezioni al mese, non cumulabili, oppure in totale) e solo scheda. Un cliente può averne più di uno insieme.
+- **Lezioni:** si scalano solo quando le segni svolte. Se annulli tu, la lezione è da recuperare; se annulla il cliente, scegli tu se recuperarla o scalarla.
+- **Agenda:** puoi creare appuntamenti provvisori e serie settimanali; ogni appuntamento della serie si sposta da solo.
+- **Promemoria automatici:** il giorno prima il cliente riceve un promemoria (non per gli appuntamenti provvisori), e tu ricevi un avviso quando una rata scade. Funzionano dopo aver eseguito `supabase/v4-promemoria-automatici.sql`.
