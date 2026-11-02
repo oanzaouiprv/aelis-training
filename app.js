@@ -102,6 +102,35 @@ const EXD=[...new Set(EX.map(e=>e.dist))];const EXT=[...new Set(EX.map(e=>e.tip)
 // vecchi esercizi della prima versione → equivalente nella nuova libreria
 const LEGACY={hip:'AE0002',bulg:'AE0021',latm:'AE0103',pull:'AE0113',curl:'AE0209',legp:'AE0042',legx:'AE0044',lento:'AE0179',chest:'AE0149',push:'AE0229',traz:'AE0112',legc:'AE0061',step:'AE0019',hyper:'AE0028',alz:'AE0180',pushup:'AE0161',plank:'AE0260'};
 // esercizi della libreria: quelli di base (meno quelli eliminati, con le modifiche della coach) più quelli creati da lei
+/* ===== ricerca esercizi: scrivi anche solo l'inizio ("kett", "bulgari", "manubri glutei") ===== */
+const norm=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+const stem=w=>w.length>=5?w.replace(/(i|e|a|o|he|hi)$/,''):w;
+// sinonimi: italiano, inglese e abbreviazioni da sala
+const SYN=[['kettlebell','kb','kettle'],['manubri','manubrio','dumbbell','db'],['bilanciere','barbell','bb'],['multipower','smith'],['corpo libero','bodyweight','a corpo libero','senza attrezzi'],['cavi','cavo','cable','croci'],['elastico','elastici','band','banda'],['macchina','machine'],['panca','bench'],
+ ['affondo','affondi','lunge','lunges'],['bulgaro','bulgari','bulgarian','split squat bulgaro'],['split squat','split'],['stacco','stacchi','deadlift','rdl','romanian'],['squat','accosciata'],['hip thrust','ponte glutei','glute bridge','bridge'],['rematore','row','rowing'],['trazioni','pull up','pullup','chin up','chinup'],['spinte','press','distensioni'],['piegamenti','push up','pushup','push-up','flessioni'],['plank','isometria'],['addominali','core','abs','crunch'],['curl','bicipiti'],['french press','tricipiti','push down','pushdown'],['alzate','raise'],['polpacci','calf'],['glutei','glutes','gluteo'],['quadricipiti','quad','quads'],['femorali','ischiocrurali','hamstring','leg curl'],['dorso','dorsali','schiena','back'],['petto','pettorali','chest'],['spalle','deltoidi','shoulder'],['salto','salti','jump','pliometrico'],['swing','slancio']];
+const SYNIDX={};SYN.forEach(g=>{const all=g.map(norm);all.forEach(w=>{SYNIDX[w]=all;});});
+// famiglie di movimento: per proporre varianti simili
+const FAM=[['affond','split','lunge','bulgar','step up','step-up'],['squat','pressa','leg press','hack'],['stacc','deadlift','rdl','good morning'],['hip thrust','glute bridge','ponte'],['rematore','row','pulley'],['trazion','lat machine','pull up','chin up','pulldown'],['panca','chest press','push up','piegament','dip','croci','spint'],['military','lento','shoulder press','arnold'],['curl'],['french','push down','pushdown','kickback tricip','estension'],['alzat','raise'],['plank','hollow','dead bug','crunch','sit up','addom','russian twist'],['swing','clean','snatch','press kettlebell'],['calf','polpacc']];
+const famOf=n=>{n=norm(n);const f=FAM.findIndex(g=>g.some(k=>n.indexOf(k)>=0));return f;};
+let EXIDX=null,EXIDXK='';
+function exHay(e){const k=e.id+'|'+e.name;if(!EXIDX||EXIDXK!==JSON.stringify((S.db||{}).exEdits||{}).length+':'+allEx().length){EXIDX={};EXIDXK=JSON.stringify((S.db||{}).exEdits||{}).length+':'+allEx().length;}
+ if(!EXIDX[k]){const nm=norm(e.name),other=norm([e.sez,e.dist,e.eq,e.tip,e.secTxt].concat((e.pri||[]).map(m=>MUSCLES[m]||m)).join(' '));
+  const ext=w=>w.split(' ').map(t=>(SYNIDX[t]||[]).join(' ')).join(' ')+' '+(SYNIDX[w]||[]).join(' ');
+  EXIDX[k]={nm:nm,nw:nm.split(' '),other:other+' '+ext(nm)+' '+ext(other)};}
+ return EXIDX[k];}
+function exScore(e,q){const toks=norm(q).split(' ').filter(Boolean);if(!toks.length)return 1;const h=exHay(e);let sc=0;
+ for(const t of toks){const st=stem(t);const alts=[t,st].concat(SYNIDX[t]||[]);let best=0;
+  for(const a of alts){if(!a)continue;
+   if(h.nm.indexOf(a)===0)best=Math.max(best,a===t||a===st?100:60);
+   else if(h.nw.some(w=>w.indexOf(a)===0))best=Math.max(best,a===t||a===st?80:50);
+   else if(h.nm.indexOf(a)>=0)best=Math.max(best,40);
+   else if(h.other.indexOf(a)>=0)best=Math.max(best,25);}
+  if(!best)return 0;sc+=best;}
+ return sc;}
+function exSearch(q,list){list=list||allEx();const r=[];list.forEach(e=>{const s0=exScore(e,q);if(s0)r.push({e:e,s:s0});});r.sort((a,b)=>b.s-a.s||a.e.name.localeCompare(b.e.name));return r.map(x=>x.e);}
+function exSimilar(found,q,list){list=list||allEx();const ids={};found.forEach(e=>ids[e.id]=1);const fams={},dists={};found.slice(0,8).forEach(e=>{const f=famOf(e.name);if(f>=0)fams[f]=1;dists[e.dist]=1;});
+ if(!found.length){const f=famOf(q);if(f>=0)fams[f]=1;}
+ return list.filter(e=>!ids[e.id]&&fams[famOf(e.name)]&&(!found.length||dists[e.dist])).slice(0,20);}
 function allEx(){const db=S&&S.db||{};const ed=db.exEdits||{},hid=db.exHidden||[];
  return EX.filter(e=>hid.indexOf(e.id)<0).map(e=>ed[e.id]?mkEx(Object.assign({},e,ed[e.id],{id:e.id,pri:null,sec:null})):e).concat((db.customEx||[]).filter(e=>!e.deleted).map(e=>e.sez?mkEx(Object.assign({},e,{pri:null,sec:null})):e));}
 let _exc=null,_exk='';
@@ -771,6 +800,22 @@ function trialCard(c){const t=trialOf(c);const st=stageOf2(c);
  if(t.status==='svolta')return st==='prova'||st==='decisione'?'<div class="card flat"><p class="small">Prova gratuita già usata il '+fd(t.doneOn)+(t.outcome?' · esito: '+OUTC[t.outcome]:'')+'. Ne spetta una sola per persona.</p></div>':'';
  if(st==='prova'||st==='decisione'||st==='archivio')return '<div class="card flat"><div class="row between"><h3>Prova gratuita</h3><span class="chip good">Disponibile</span></div>'+(t.lastCancel?'<p class="xs muted">L\'ultima, del '+fd(t.lastCancel)+', è stata annullata: resta disponibile.</p>':'')+'<button class="btn sm primary" style="align-self:flex-start" data-act="trialNew" data-id="'+c.id+'">Programma la prova</button></div>';
  return '';}
+function epPicker(s){const q=S.ui.epq||'';const fq=S.ui.epsez||'';const inS={};s.items.forEach(it=>inS[it.ex]=1);
+ const all=allEx();const sezOf=e=>SEZ.indexOf(e.sez)>=0?e.sez:'I tuoi';
+ let h='<section class="card" id="ep-search"><h3>Aggiungi esercizi</h3><input class="in" type="search" id="epq" data-bind="epq" value="'+esc(q)+'" placeholder="Cerca: kett, bulgaro, manubri glutei…" aria-label="Cerca esercizio" autocomplete="off" enterkeyhint="search">';
+ h+='<div class="tabs" role="group" aria-label="Sezione"><button aria-pressed="'+(!fq)+'" data-act="epSez" data-v="">Tutte</button>'+SEZ.concat(all.some(e=>sezOf(e)==='I tuoi')?['I tuoi']:[]).map(x=>'<button aria-pressed="'+(fq===x)+'" data-act="epSez" data-v="'+esc(x)+'">'+esc(x)+'</button>').join('')+'</div>';
+ const base=all.filter(e=>!fq||sezOf(e)===fq);
+ const row=e=>'<button class="li" data-act="epPick" data-id="'+e.id+'"><span class="grow"><span class="t">'+esc(e.name)+'</span><br><span class="s">'+esc([e.dist,e.eq].filter(Boolean).join(' · '))+'</span></span>'+(inS[e.id]?'<span class="chip good">'+ic('check',13)+' Aggiunto</span>':'<span class="chip pink">'+ic('plus',13)+' Aggiungi</span>')+'</button>';
+ if(!q.trim()){h+='<p class="xs muted">Scrivi anche solo l\'inizio di una parola: nome, muscolo, attrezzo o sezione. Puoi combinarle, per esempio “manubri glutei”.</p>';
+  if(fq){h+='<div class="list scrolly">'+base.slice(0,60).map(row).join('')+'</div>'+(base.length>60?'<p class="xs muted">Primi 60 di '+base.length+': scrivi per restringere.</p>':'');}
+  return h+'</section>';}
+ const found=exSearch(q,base);const sim=found.length<8?exSimilar(found,q,base):[];
+ h+='<p class="xs muted">'+(found.length?found.length+(found.length===1?' esercizio trovato':' esercizi trovati'):'Nessun esercizio con queste parole')+(fq?' in '+esc(fq):'')+'</p>';
+ if(found.length){const groups={};found.forEach(e=>{(groups[sezOf(e)]=groups[sezOf(e)]||[]).push(e);});
+  h+='<div class="scrolly">'+Object.keys(groups).map(g=>'<p class="sec-mini">'+esc(g)+' · '+groups[g].length+'</p><div class="list">'+groups[g].slice(0,80).map(row).join('')+'</div>').join('')+'</div>';}
+ if(sim.length)h+='<details class="flat"'+(found.length<4?' open':'')+'><summary class="small" style="font-weight:650;cursor:pointer;padding:6px 0">Varianti simili ('+sim.length+')</summary><div class="list">'+sim.map(row).join('')+'</div></details>';
+ h+='<button class="btn sm" style="align-self:flex-start" data-act="exNew" data-v="ep">'+ic('plus',14)+' Crea “'+esc(q.trim().slice(0,40))+'” come nuovo esercizio</button>';
+ return h+'</section>';}
 function vEditProg(){
  const c=client(S.ui.page.id);const e=S.ui.editProg;
  let h=head('Scheda di '+esc(c.name.split(' ')[0]),'Bozza · versione '+e.version);
@@ -780,7 +825,7 @@ function vEditProg(){
  h+=s.items.map((it,j)=>{const x=exById(it.ex);return '<div class="ex"><div class="row between"><h3 class="grow">'+esc(x.name)+'</h3><button class="btn sm ghost danger" data-act="epDel" data-v="'+j+'" aria-label="Rimuovi">'+ic('x',16)+'</button></div><div class="grid2" style="grid-template-columns:repeat(4,minmax(0,1fr))">'+
   [['sets','Serie'],['rmin','Rip. min'],['rmax','Rip. max'],['rest','Rec. s']].map(f=>'<label class="f">'+f[1]+'<input class="in num" type="number" inputmode="numeric" id="ep-'+j+'-'+f[0]+'" data-ep="'+j+','+f[0]+'" value="'+it[f[0]]+'"></label>').join('')+'</div><p class="xs muted">'+esc(x.note)+'</p></div>';}).join('');
  if(!s.items.length)h+=empty('Aggiungi il primo esercizio dalla libreria.');
- h+='<label class="f">Aggiungi esercizio dalla libreria<select class="in" id="ep-add" data-bind="epAdd"><option value="">Scegli…</option>'+(()=>{const a=allEx();const g=SEZ.concat(['I tuoi']);return g.map(sz=>{const it=a.filter(e=>(SEZ.indexOf(e.sez)>=0?e.sez:'I tuoi')===sz);return it.length?'<optgroup label="'+esc(sz)+'">'+it.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join('')+'</optgroup>':'';}).join('');})()+'</select></label>';
+ h+=epPicker(s);
  h+='<button class="btn primary lg block" data-act="epSave">'+ic('check',18)+' '+(e.ai?'Approva e assegna':'Salva e assegna')+'</button>';
  return h;
 }
@@ -908,8 +953,8 @@ function vLibreria(){
  h+='<div class="tabs" role="group" aria-label="Sezione"><button aria-pressed="'+(!sz)+'" data-act="exSez" data-v="">Tutte</button>'+secs.map(x=>'<button aria-pressed="'+(sz===x)+'" data-act="exSez" data-v="'+esc(x)+'">'+esc(x)+' <span class="xs muted">'+all.filter(e=>sezOf(e)===x).length+'</span></button>').join('')+'</div>';
  const dists=[...new Set(all.filter(e=>!sz||sezOf(e)===sz).map(e=>e.dist||'').filter(Boolean))];
  h+='<label class="f">Distretto<select class="in" data-bind="exdist" id="exdist"><option value="">Tutti i distretti</option>'+dists.map(d=>'<option'+(ds===d?' selected':'')+'>'+esc(d)+'</option>').join('')+'</select></label>';
- const match=e=>(!sz||sezOf(e)===sz)&&(!ds||e.dist===ds)&&(!q||[e.name,e.dist,e.secTxt,e.eq,e.tip].concat(e.pri.map(m=>MUSCLES[m])).join(' ').toLowerCase().indexOf(q)>=0);
- const list=all.filter(match);
+ const match=e=>(!sz||sezOf(e)===sz)&&(!ds||e.dist===ds);
+ const list=q?exSearch(q,all.filter(match)):all.filter(match);
  h+='<button class="btn primary lg block" data-act="exNew">'+ic('plus',18)+' Nuovo esercizio</button>';
  if(!list.length)return h+empty('Nessun esercizio trovato.');
  const row=e=>'<button class="li" data-act="open" data-v="esercizio" data-id="'+e.id+'"><span class="av">'+ic('dumbbell',18)+'</span><span class="grow"><span class="t">'+esc(e.name)+'</span><br><span class="s">'+esc([e.dist||(e.pri.map(m=>MUSCLES[m]).join(', ')),e.eq].filter(Boolean).join(' · '))+(e.custom?' · tuo':'')+'</span></span>'+chev()+'</button>';
@@ -1476,8 +1521,12 @@ const A={
  bookSend(){const b=S.ui.book;const sl=freeSlots()[b.slot];const n=val('bk-name')||'Nuovo contatto';const pp=n.split(/\s+/);const c=clientDefaults({id:'c'+uid(),name:n,first:pp[0],last:pp.slice(1).join(' '),phone:val('bk-contact'),src:'Social',srcD:'Instagram',origin:'esterno',stage:'prova',since:TODAY});const ap={id:uid(),date:sl.d,time:sl.t,dur:b.type==='prova'?60:15,type:b.type==='prova'?'free':'consulenza',status:'attesa',clientId:c.id,prov:true};if(b.type==='prova')c.trial={status:'programmata',date:sl.d,apptId:ap.id};clog(c,'Prenotazione dalla pagina pubblica');S.db.clients.push(c);S.db.appts.push(ap);S.ui.book={type:b.type,slot:null,done:true};save();render();},
  bookReset(){S.ui.book=null;render();},
  reset(){if(REAL)return;try{localStorage.removeItem(KEY);}catch(e){}S.db=seed();S.ui.page=null;S.ui.tab='oggi';S.ui.wk=null;S.ui.party=null;toast('Dati di esempio ripristinati');},
- editProg(d){const c=client(d.id);const p=programOf(c);S.ui.editProg={clientId:c.id,version:p?p.version+1:1,sel:0,ai:false,sessions:p?JSON.parse(JSON.stringify(p.sessions)):[{key:'A',name:'Seduta A',items:[]}]};S.ui.page={name:'editProg',id:c.id,prev:S.ui.page};render();go();},
+ editProg(d){S.ui.epq='';S.ui.epsez='';const c=client(d.id);const p=programOf(c);S.ui.editProg={clientId:c.id,version:p?p.version+1:1,sel:0,ai:false,sessions:p?JSON.parse(JSON.stringify(p.sessions)):[{key:'A',name:'Seduta A',items:[]}]};S.ui.page={name:'editProg',id:c.id,prev:S.ui.page};render();go();},
  epSel(d){S.ui.editProg.sel=+d.v;render();},
+ epPick(d){const e=S.ui.editProg;const s=e.sessions[e.sel];const ex=exById(d.id);const at=s.items.findIndex(it=>it.ex===d.id);
+  if(at>=0){toast(ex.name+' è già in questa seduta');return;}
+  const el0=document.getElementById('epq');const t0=el0?el0.getBoundingClientRect().top:0;s.items.push({ex:d.id,sets:3,rmin:8,rmax:12,rest:90,rir:2,alt:[]});render();const el1=document.getElementById('epq');if(el1)window.scrollBy(0,el1.getBoundingClientRect().top-t0);toast('Aggiunto: '+ex.name);},
+ epSez(d){S.ui.epsez=d.v;render();const el=document.getElementById('epq');if(el&&S.ui.epq)el.focus();},
  epAddSes(){const e=S.ui.editProg;const k=String.fromCharCode(65+e.sessions.length);e.sessions.push({key:k,name:'Seduta '+k,items:[]});e.sel=e.sessions.length-1;render();},
  epDel(d){S.ui.editProg.sessions[S.ui.editProg.sel].items.splice(+d.v,1);render();},
  epSave(){const e=S.ui.editProg;const c=client(e.clientId);if(!e.sessions.some(s=>s.items.length)){toast('Aggiungi almeno un esercizio');return;}let p=programOf(c);if(p){p.sessions=e.sessions;p.version=e.version;p.assigned=TODAY;}else{p={id:'p'+uid(),clientId:c.id,version:e.version,assigned:TODAY,sessions:e.sessions};S.db.programs.push(p);c.program=p.id;}c.ob.scheda=true;S.ui.editProg=null;S.ui.page=S.ui.page.prev;S.ui.ctab='scheda';save();toast('Scheda v'+p.version+' assegnata a '+c.name.split(' ')[0]);},
@@ -1555,7 +1604,7 @@ const A={
  calLink(){AelisCloud.calendarLink(false).then(l=>{S.ui.calLink=l;render();}).catch(e=>toast(e.message));},
  calReset(){AelisCloud.calendarLink(true).then(l=>{S.ui.calLink=l;render();toast('Nuovo indirizzo: aggiornalo in Google Calendar');}).catch(e=>toast(e.message));},
  calCopy(){const l=S.ui.calLink;if(!l)return;try{navigator.clipboard.writeText(l).then(()=>toast('Indirizzo copiato'),()=>toast('Tieni premuto sull\'indirizzo per copiarlo'));}catch(e){toast('Tieni premuto sull\'indirizzo per copiarlo');}},
- exNew(){S.ui.exf={id:null,custom:true,name:'',sez:S.ui.exsez&&SEZ.indexOf(S.ui.exsez)>=0?S.ui.exsez:'Sala pesi',dist:S.ui.exdist||'Glutei',secTxt:'',eq:'',tip:'Multiarticolare',lat:'Bilaterale / variabile',note:'',vid:''};S.ui.sheet={kind:'exForm'};render();},
+ exNew(d){const fromEp=d&&d.v==='ep';S.ui.exf={id:null,custom:true,ep:fromEp,name:fromEp?cap((S.ui.epq||'').trim().slice(0,60)):'',sez:S.ui.exsez&&SEZ.indexOf(S.ui.exsez)>=0?S.ui.exsez:'Sala pesi',dist:S.ui.exdist||'Glutei',secTxt:'',eq:'',tip:'Multiarticolare',lat:'Bilaterale / variabile',note:'',vid:''};S.ui.sheet={kind:'exForm'};render();},
  exEdit(d){const e=exById(d.id);S.ui.exf={id:e.id,custom:!!e.custom,name:e.name,sez:e.sez||'Sala pesi',dist:e.dist||'Glutei',secTxt:e.secTxt||'',eq:e.eq||'',tip:e.tip||'Multiarticolare',lat:e.lat||'Bilaterale / variabile',note:e.note||'',vid:(S.db.videos||{})[e.id]||''};S.ui.sheet={kind:'exForm'};render();},
  exSez(d){S.ui.exsez=d.v||'';S.ui.exdist='';render();},
  exSave(){const f=S.ui.exf;const name=val('exf-name'),vid=val('exf-vid');
@@ -1568,7 +1617,8 @@ const A={
   else if(f.custom){const e=S.db.customEx.find(x=>x.id===id);Object.assign(e,data);delete e.pri;delete e.sec;}
   else{S.db.exEdits=S.db.exEdits||{};S.db.exEdits[id]=data;}
   S.db.videos=S.db.videos||{};if(vid)S.db.videos[id]=vid;else delete S.db.videos[id];
-  S.ui.sheet=null;S.ui.exf=null;save();render();toast(f.id?'Esercizio aggiornato':'Esercizio aggiunto alla libreria');},
+  if(f.ep&&!f.id&&S.ui.editProg){const se=S.ui.editProg.sessions[S.ui.editProg.sel];se.items.push({ex:id,sets:3,rmin:8,rmax:12,rest:90,rir:2,alt:[]});}
+  S.ui.sheet=null;S.ui.exf=null;save();render();toast(f.id?'Esercizio aggiornato':f.ep?'Creato e aggiunto alla seduta':'Esercizio aggiunto alla libreria');},
  exDel(){const f=S.ui.exf;const used=S.db.programs.some(p=>p.sessions.some(se=>se.items.some(it=>it.ex===f.id||(it.alt||[]).indexOf(f.id)>=0)));
   if(used){toast('È in una scheda: toglilo prima dalla scheda');return;}
   if(f.custom){const e=S.db.customEx.find(x=>x.id===f.id);if(e)e.deleted=true;}
@@ -1624,7 +1674,7 @@ document.addEventListener('change',e=>{if(e.target&&e.target.id==='inv-already')
 document.addEventListener('input',e=>{
  const t=e.target;
  if(t.dataset.bind){const b=t.dataset.bind;
-  if(b==='search'||b==='exq'){S.ui[b]=t.value;const pos=t.selectionStart,id=t.id;render();const s=document.getElementById(id);if(s){s.focus();try{s.setSelectionRange(pos,pos);}catch(x){}}return;}
+  if(b==='search'||b==='exq'||b==='epq'){S.ui[b]=t.value;const pos=t.selectionStart,id=t.id;render();const s=document.getElementById(id);if(s){s.focus();try{s.setSelectionRange(pos,pos);}catch(x){}}return;}
   if(b==='cnotes'){client(S.ui.page.id).notes=t.value;save();return;}
   if(b==='cmsg'){S.db.coachMsg[S.ui.page.id]=t.value;save();return;}
   if(b==='wkNote'){S.ui.wk.note=t.value;return;}
