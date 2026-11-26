@@ -147,6 +147,24 @@ const [dl2]=await Promise.all([g.waitForEvent('download'),(async()=>{await g.cli
  const kb=await c.$('[data-act="kudos"]');if(kb){await kb.click();await c.waitForTimeout(1300);}
  ok((DB.client_space[0].data.kudos||[]).length===1,'applauso inviato');
  await shot(c,'08-coach-oggi-con-cliente');
+ // ---------- COACH allena la cliente: si salva nel profilo di entrambe ----------
+ {const gid0=DB.clients_index[0].id;
+  await c.evaluate(id=>{const b=document.createElement('button');b.dataset.act='coachWk';b.dataset.id=id;b.dataset.v='A';document.body.appendChild(b);b.click();b.remove();},gid0);await c.waitForTimeout(200);
+  ok(/Stai allenando/.test(await txt(c)),'coach: allena la cliente seguendo la scheda');
+  await c.fill('#w-0-0-kg','47,5');await c.fill('#w-0-0-reps','11');await c.click('[data-act="setDone"][data-i="0"][data-j="0"]');
+  await c.fill('#wk-note','Brava!');await c.fill('#wk-pnote','SEGRETO-COACH');
+  await c.click('[data-act="finishWk"]');await c.waitForTimeout(1500);
+  const sp2=DB.client_space.find(r=>r.client_id===gid0).data;const ch=(sp2.coachHist||[])[0];
+  ok(ch&&Object.values(ch.sets)[0][0].kg===47.5&&ch.note==='Brava!','seduta con la coach arrivata nello spazio della cliente');
+  ok(!JSON.stringify(sp2).includes('SEGRETO-COACH'),'la nota privata della coach NON arriva alla cliente');
+  ok(JSON.stringify(DB.coach_space[0].data).includes('SEGRETO-COACH'),'la nota privata resta nello spazio della coach');
+  ok(DB.notifications.some(n=>/registrato da Aelis/.test(n.title)),'notifica alla cliente per l\'allenamento registrato');
+  await c.click('.sheet [data-act="closeSheet"]');
+  await g.reload();await g.waitForTimeout(900);await g.click('[data-act="ctabMain"][data-v="progressi"]');await g.waitForTimeout(200);
+  const gt=await txt(g);ok(/Con Aelis/.test(gt)&&!/SEGRETO/.test(gt),'la cliente vede la seduta con la coach nel diario');
+  await g.click('[data-act="ctabMain"][data-v="home"]');await g.waitForTimeout(1300);
+  const lg=DB.client_log.find(r=>r.client_id===gid0).data;ok(!(lg.history||[]).some(h=>h.by==='coach'),'il diario della cliente non duplica la seduta della coach');
+ }
  // ---------- chat interna e notifiche ----------
  ok(DB.notifications.some(n=>n.title==='Lezione confermata')&&DB.notifications.some(n=>/applauso/.test(n.title)),'notifiche per lezione confermata e applauso');
  ok(DB.notifications.some(n=>/finito l'allenamento/.test(n.title))&&DB.notifications.some(n=>/chiede una lezione/.test(n.title)),'notifiche alla coach per allenamento e richiesta');

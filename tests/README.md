@@ -16,3 +16,12 @@ richieste, offline, due dispositivi, logout, password dimenticata, eliminazione 
 python3 -m http.server 8765        # dalla cartella principale
 node tests/e2e-accesso.js          # in un altro terminale (serve Playwright)
 ```
+
+## Allenamento dal vivo (demo)
+`e2e-allenamento.js` apre la versione demo e prova: timer di recupero sempre visibile (anche a fine pagina),
+coach che allena il cliente (pesi, ripetizioni, recuperi, cambio e aggiunta esercizi, note), salvataggio nel profilo
+di entrambi, nota privata mai visibile al cliente, vista a 360° nel dossier.
+
+```
+node tests/e2e-allenamento.js
+```

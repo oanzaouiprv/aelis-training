@@ -313,6 +313,8 @@ function clientSpace(c){
   measures:db.measures.filter(m=>m.clientId===cid),
   coachMsg:(db.coachMsg||{})[cid]||null,
   kudos:db.history.filter(h=>h.clientId===cid&&h.kudos).map(h=>h.id),
+  // allenamenti fatti con la coach: il cliente li vede nel suo diario (mai la nota privata)
+  coachHist:db.history.filter(h=>h.clientId===cid&&!h._c&&h.by==='coach').slice(-300).map(h=>strip(h,['clientId','kudos','kudosSeen','_c','pnote'])),
   req:req,
   msgs:db.scheduled.filter(x=>(x.to===cid||x.to==='tutti')&&x.when&&x.when<=nowStr()).slice(-20).map(x=>({id:x.id,when:x.when,text:x.text}))
  };
@@ -349,7 +351,9 @@ function composeClient(ix,sp,l,pub){
  const msgs=(sp.msgs||[]).slice().sort((a,b)=>a.when<b.when?-1:1);const lastMsg=msgs[msgs.length-1];
  if(lastMsg&&lastMsg.when.slice(0,10)>=new Date(Date.now()-3*864e5).toISOString().slice(0,10))db.coachMsg[cid]=lastMsg.text;else if(sp.coachMsg)db.coachMsg[cid]=sp.coachMsg;
  const kud=sp.kudos||[],seen=l.seenKudos||[];
- db.history=(l.history||[]).map(h=>Object.assign({},h,{clientId:cid,kudos:kud.indexOf(h.id)>=0,kudosSeen:seen.indexOf(h.id)>=0})).sort(byDate);
+ db.history=(l.history||[]).map(h=>Object.assign({},h,{clientId:cid,kudos:kud.indexOf(h.id)>=0,kudosSeen:seen.indexOf(h.id)>=0}));
+ (sp.coachHist||[]).forEach(h=>{if(h&&h.id&&!db.history.some(x=>x.id===h.id))db.history.push(Object.assign({},h,{clientId:cid,type:'coach',by:'coach',_k:1,pnote:undefined,kudos:false,kudosSeen:false}));});
+ db.history.sort(byDate);
  db.checks=(l.checks||[]).map(x=>Object.assign({},x,{clientId:cid})).sort((a,b)=>-byDate(a,b));
  const lc=db.checks[0];if(lc)c.lastCheck=lc.date;
  const rs=sp.req||{};
@@ -367,8 +371,8 @@ function composeClient(ix,sp,l,pub){
 function decomposeClient(){
  const db=api.S.db,cid=M.cid,c=db.clients.find(x=>x.id===cid)||{};
  return {
-  history:db.history.filter(h=>h.clientId===cid).map(h=>strip(h,['clientId','kudos','kudosSeen','_c'])),
-  seenKudos:db.history.filter(h=>h.clientId===cid&&h.kudosSeen).map(h=>h.id),
+  history:db.history.filter(h=>h.clientId===cid&&!h._k).map(h=>strip(h,['clientId','kudos','kudosSeen','_c','_k'])),
+  seenKudos:db.history.filter(h=>h.clientId===cid&&h.kudosSeen&&!h._k).map(h=>h.id),
   checks:db.checks.filter(x=>x.clientId===cid).map(x=>Object.assign(strip(x,['clientId']),{id:x.id||('k'+x.date)})),
   requests:db.requests.filter(x=>x.clientId===cid).map(x=>Object.assign(strip(x,['clientId']),{status:'attesa'})),
   msgs:db.inbox.filter(m=>m.clientId===cid).map(m=>strip(m,['clientId','read'])),
